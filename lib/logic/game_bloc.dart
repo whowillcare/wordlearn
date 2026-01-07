@@ -116,7 +116,12 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     if (state.status != GameStatus.playing) return;
     if (state.currentGuess.length >= state.targetWord.length) return;
 
-    emit(state.copyWith(currentGuess: state.currentGuess + event.letter));
+    emit(
+      state.copyWith(
+        currentGuess: state.currentGuess + event.letter,
+        clearError: true,
+      ),
+    );
   }
 
   void _onLetterDeleted(LetterDeleted event, Emitter<GameState> emit) {
@@ -129,6 +134,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
           0,
           state.currentGuess.length - 1,
         ),
+        clearError: true,
       ),
     );
   }

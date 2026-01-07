@@ -43,13 +43,14 @@ class GameState extends Equatable {
     DateTime? startTime,
     String? currentGuess,
     Map<String, LetterStatus>? letterStatus,
+    bool clearError = false,
   }) {
     return GameState(
       status: status ?? this.status,
       targetWord: targetWord ?? this.targetWord,
       guesses: guesses ?? this.guesses,
       revealedIndices: revealedIndices ?? this.revealedIndices,
-      errorMessage: errorMessage ?? this.errorMessage,
+      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       level: level ?? this.level,
       category: category ?? this.category,
       startTime: startTime ?? this.startTime,
