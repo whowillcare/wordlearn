@@ -13,11 +13,12 @@ class GameState extends Equatable {
   final String? errorMessage;
 
   final GameLevel? level;
-  final String category;
+  final List<String> categories;
   final DateTime? startTime;
 
   final String currentGuess;
   final Map<String, LetterStatus> letterStatus;
+  final bool isWordSaved;
 
   const GameState({
     this.status = GameStatus.initial,
@@ -26,11 +27,15 @@ class GameState extends Equatable {
     this.revealedIndices = const {},
     this.errorMessage,
     this.level,
-    this.category = '',
+    this.categories = const [],
     this.startTime,
     this.currentGuess = '',
     this.letterStatus = const {},
+    this.categoryWordCount,
+    this.isWordSaved = false,
   });
+
+  final int? categoryWordCount;
 
   GameState copyWith({
     GameStatus? status,
@@ -39,11 +44,13 @@ class GameState extends Equatable {
     Set<int>? revealedIndices,
     String? errorMessage,
     GameLevel? level,
-    String? category,
+    List<String>? categories,
     DateTime? startTime,
     String? currentGuess,
     Map<String, LetterStatus>? letterStatus,
     bool clearError = false,
+    int? categoryWordCount,
+    bool? isWordSaved,
   }) {
     return GameState(
       status: status ?? this.status,
@@ -52,10 +59,12 @@ class GameState extends Equatable {
       revealedIndices: revealedIndices ?? this.revealedIndices,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       level: level ?? this.level,
-      category: category ?? this.category,
+      categories: categories ?? this.categories,
       startTime: startTime ?? this.startTime,
       currentGuess: currentGuess ?? this.currentGuess,
       letterStatus: letterStatus ?? this.letterStatus,
+      categoryWordCount: categoryWordCount ?? this.categoryWordCount,
+      isWordSaved: isWordSaved ?? this.isWordSaved,
     );
   }
 
@@ -70,5 +79,6 @@ class GameState extends Equatable {
     startTime,
     currentGuess,
     letterStatus,
+    categoryWordCount,
   ];
 }

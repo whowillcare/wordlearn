@@ -14,10 +14,10 @@ import 'components/keyboard.dart';
 import 'package:confetti/confetti.dart';
 
 class GameScreen extends StatefulWidget {
-  final String category;
+  final List<String> categories;
   final GameLevel level;
 
-  const GameScreen({super.key, required this.category, required this.level});
+  const GameScreen({super.key, required this.categories, required this.level});
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -40,6 +40,14 @@ class _GameScreenState extends State<GameScreen> {
     super.dispose();
   }
 
+  String get _categoryTitle {
+    if (widget.categories.length == 1) {
+      if (widget.categories.first == 'all') return 'Everything';
+      return widget.categories.first;
+    }
+    return '${widget.categories.length} Categories';
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
@@ -47,10 +55,26 @@ class _GameScreenState extends State<GameScreen> {
         RepositoryProvider.of<WordRepository>(context),
         RepositoryProvider.of<StatisticsRepository>(context),
         RepositoryProvider.of<SettingsRepository>(context),
-      )..add(GameStarted(level: widget.level, category: widget.category)),
+      )..add(GameStarted(level: widget.level, categories: widget.categories)),
       child: Scaffold(
         appBar: AppBar(
-          title: Text('${widget.category} (${widget.level.name})'),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('$_categoryTitle (${widget.level.name})'),
+              BlocBuilder<GameBloc, GameState>(
+                builder: (context, state) {
+                  if (state.categoryWordCount == null) {
+                    return const SizedBox.shrink();
+                  }
+                  return Text(
+                    '${state.categoryWordCount} words',
+                    style: const TextStyle(fontSize: 12),
+                  );
+                },
+              ),
+            ],
+          ),
           actions: [
             BlocBuilder<GameBloc, GameState>(
               builder: (context, state) {
@@ -62,16 +86,7 @@ class _GameScreenState extends State<GameScreen> {
                 );
               },
             ),
-            BlocBuilder<GameBloc, GameState>(
-              builder: (context, state) {
-                return IconButton(
-                  icon: const Icon(Icons.help_outline),
-                  onPressed: state.status == GameStatus.playing
-                      ? () => context.read<GameBloc>().add(SolutionRequested())
-                      : null,
-                );
-              },
-            ),
+            // (Solution button removed as event was removed)
           ],
         ),
         body: BlocConsumer<GameBloc, GameState>(
@@ -80,17 +95,51 @@ class _GameScreenState extends State<GameScreen> {
               _confettiController.play();
               showDialog(
                 context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Victory! 🎉'),
-                  content: Text(
-                    'You guessed the word: ${state.targetWord.toUpperCase()}',
+                builder: (_) => BlocProvider.value(
+                  value: context.read<GameBloc>(),
+                  child: BlocBuilder<GameBloc, GameState>(
+                    builder: (context, state) {
+                      return AlertDialog(
+                        title: const Text('Victory! 🎉'),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'You guessed the word: ${state.targetWord.toUpperCase()}',
+                            ),
+                          ],
+                        ),
+                        actions: [
+                          if (!state.isWordSaved)
+                            TextButton.icon(
+                              onPressed: () {
+                                context.read<GameBloc>().add(
+                                  AddToLibraryRequested(),
+                                );
+                              },
+                              icon: const Icon(Icons.bookmark_add),
+                              label: const Text('ADD TO LIBRARY'),
+                            )
+                          else
+                            TextButton.icon(
+                              onPressed: null,
+                              icon: const Icon(
+                                Icons.check,
+                                color: Colors.green,
+                              ),
+                              label: const Text(
+                                'SAVED',
+                                style: TextStyle(color: Colors.green),
+                              ),
+                            ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('AWESOME'),
+                          ),
+                        ],
+                      );
+                    },
                   ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('AWESOME'),
-                    ),
-                  ],
                 ),
               );
             } else if (state.status == GameStatus.lost) {
@@ -125,13 +174,13 @@ class _GameScreenState extends State<GameScreen> {
                       child: Keyboard(
                         letterStatus: state.letterStatus,
                         onKeyTap: (letter) {
-                          context.read<GameBloc>().add(LetterEntered(letter));
+                          context.read<GameBloc>().add(GuessEntered(letter));
                         },
                         onDeleteTap: () {
-                          context.read<GameBloc>().add(const LetterDeleted());
+                          context.read<GameBloc>().add(GuessDeleted());
                         },
                         onEnterTap: () {
-                          context.read<GameBloc>().add(const GuessSubmitted());
+                          context.read<GameBloc>().add(GuessSubmitted());
                         },
                       ),
                     ),

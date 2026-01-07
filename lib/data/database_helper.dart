@@ -41,6 +41,15 @@ class DatabaseHelper {
     final result = db.select('SELECT count(*) as count FROM words');
     if (result.isNotEmpty && result.first['count'] == 0) {
       await _populateDatabase(db);
+    } else {
+      // Check for missing freq data (recovery from previous bug)
+      final freqResult = db.select(
+        "SELECT count(*) as count FROM words WHERE category = 'freq'",
+      );
+      if (freqResult.isNotEmpty && freqResult.first['count'] == 0) {
+        print('Detecting missing freq data. Attempting to populate...');
+        await _populateDatabase(db, onlyFiles: ['assets/data/freq.json']);
+      }
     }
 
     // Migrations
@@ -51,25 +60,35 @@ class DatabaseHelper {
     } catch (_) {} // Column likely exists
 
     try {
+      db.execute("DELETE FROM words WHERE category = 'swear'");
+    } catch (_) {}
+
+    try {
       db.execute('ALTER TABLE learnt_words ADD COLUMN category TEXT');
     } catch (_) {} // Column likely exists
 
     return db;
   }
 
-  Future<void> _populateDatabase(Database db) async {
+  Future<void> _populateDatabase(Database db, {List<String>? onlyFiles}) async {
     try {
       // final manifestContent = await rootBundle.loadString('AssetManifest.json');
       // final Map<String, dynamic> manifestMap = json.decode(manifestContent);
 
       final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
-      final wordFiles = manifest
-          .listAssets()
-          .where(
-            (String key) =>
-                key.startsWith('assets/data/') && key.endsWith('.json'),
-          )
-          .toList();
+      List<String> wordFiles;
+
+      if (onlyFiles != null) {
+        wordFiles = onlyFiles;
+      } else {
+        wordFiles = manifest
+            .listAssets()
+            .where(
+              (String key) =>
+                  key.startsWith('assets/data/') && key.endsWith('.json'),
+            )
+            .toList();
+      }
 
       if (wordFiles.isEmpty) {
         print('No word files found in assets.');
@@ -85,7 +104,19 @@ class DatabaseHelper {
       for (final file in wordFiles) {
         try {
           final jsonString = await rootBundle.loadString(file);
-          final List<dynamic> words = json.decode(jsonString);
+          final dynamic jsonContent = json.decode(jsonString);
+          final List<dynamic> words = [];
+          if (jsonContent is List) {
+            words.addAll(jsonContent);
+          } else if (jsonContent is Map) {
+            for (final value in jsonContent.values) {
+              if (value is List) {
+                words.addAll(value);
+              } else {
+                words.add(value);
+              }
+            }
+          }
           // file is like "assets/words/grade-1.json"
           String category = basenameWithoutExtension(file);
           // basenameWithoutExtension needs package:path, which is already imported as join coming from there?
@@ -103,7 +134,7 @@ class DatabaseHelper {
       }
 
       db.execute('COMMIT');
-      stmt.dispose();
+      stmt.close();
       print('Database populated successfully.');
     } catch (e) {
       print('Error populating database: $e');

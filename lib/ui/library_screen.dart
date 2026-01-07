@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../data/word_repository.dart';
 import '../../logic/library_bloc.dart';
 import 'package:intl/intl.dart';
+import 'word_detail_screen.dart';
 
 class LibraryScreen extends StatelessWidget {
   const LibraryScreen({super.key});
@@ -160,16 +161,49 @@ class LibraryView extends StatelessWidget {
                     subtitle: Text(
                       '$category • ${DateFormat.yMMMd().format(dateAdded)}',
                     ),
-                    trailing: IconButton(
-                      icon: Icon(
-                        isFav ? Icons.favorite : Icons.favorite_border,
-                        color: isFav ? Colors.red : null,
-                      ),
-                      onPressed: () {
-                        context.read<LibraryBloc>().add(
-                          ToggleFavorite(word, !isFav),
-                        );
-                      },
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => WordDetailScreen(word: word),
+                        ),
+                      );
+                    },
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: Icon(
+                            isFav ? Icons.favorite : Icons.favorite_border,
+                            color: isFav ? Colors.red : null,
+                          ),
+                          onPressed: () {
+                            context.read<LibraryBloc>().add(
+                              ToggleFavorite(word, !isFav),
+                            );
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.grey),
+                          onPressed: () {
+                            // Trigger deletion with Undo option
+                            context.read<LibraryBloc>().add(DeleteWord(word));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Removed "$word"'),
+                                action: SnackBarAction(
+                                  label: 'UNDO',
+                                  onPressed: () {
+                                    context.read<LibraryBloc>().add(
+                                      UndoDeleteWord(word, category, isFav),
+                                    );
+                                  },
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ),
                   ),
                 ),

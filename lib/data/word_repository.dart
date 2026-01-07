@@ -10,7 +10,7 @@ class WordRepository {
       'INSERT INTO words (text, length, category) VALUES (?, ?, ?)',
     );
     stmt.execute([text.toLowerCase(), text.length, category]);
-    stmt.dispose();
+    stmt.close();
   }
 
   Future<void> bulkInsertWords(List<Map<String, dynamic>> words) async {
@@ -32,7 +32,7 @@ class WordRepository {
       db.execute('ROLLBACK');
       rethrow;
     } finally {
-      stmt.dispose();
+      stmt.close();
     }
   }
 
@@ -62,17 +62,53 @@ class WordRepository {
     return result.map((row) => row['category'] as String).toList();
   }
 
-  Future<List<String>> getWords(
-    String category,
+  Future<int> getWordsCount(
+    List<String> categories,
     int minLength,
     int maxLength,
   ) async {
     final db = await _dbHelper.database;
-    final stmt = db.prepare(
-      'SELECT text FROM words WHERE category = ? AND length >= ? AND length <= ?',
+    if (categories.contains('all') || categories.isEmpty) {
+      final result = db.select(
+        'SELECT COUNT(*) as count FROM words WHERE length >= ? AND length <= ?',
+        [minLength, maxLength],
+      );
+      return result.first['count'] as int;
+    }
+
+    final placeholders = List.filled(categories.length, '?').join(',');
+    final result = db.select(
+      'SELECT COUNT(*) as count FROM words WHERE category IN ($placeholders) AND length >= ? AND length <= ?',
+      [...categories, minLength, maxLength],
     );
-    final ResultSet results = stmt.select([category, minLength, maxLength]);
-    stmt.dispose();
+    return result.first['count'] as int;
+  }
+
+  Future<List<String>> getWords(
+    List<String> categories,
+    int minLength,
+    int maxLength,
+  ) async {
+    final db = await _dbHelper.database;
+    if (categories.contains('all') || categories.isEmpty) {
+      final stmt = db.prepare(
+        'SELECT text FROM words WHERE length >= ? AND length <= ?',
+      );
+      final ResultSet results = stmt.select([minLength, maxLength]);
+      stmt.close();
+      return results.map((row) => row['text'] as String).toList();
+    }
+
+    final placeholders = List.filled(categories.length, '?').join(',');
+    final stmt = db.prepare(
+      'SELECT text FROM words WHERE category IN ($placeholders) AND length >= ? AND length <= ?',
+    );
+    final ResultSet results = stmt.select([
+      ...categories,
+      minLength,
+      maxLength,
+    ]);
+    stmt.close();
     return results.map((row) => row['text'] as String).toList();
   }
 
@@ -80,6 +116,18 @@ class WordRepository {
     final db = await _dbHelper.database;
     final ResultSet result = db.select('SELECT COUNT(*) as count FROM words');
     return result.first['count'] as int;
+  }
+
+  Future<String> getWordCategory(String word) async {
+    final db = await _dbHelper.database;
+    final result = db.select(
+      'SELECT category FROM words WHERE text = ? LIMIT 1',
+      [word],
+    );
+    if (result.isNotEmpty) {
+      return result.first['category'] as String;
+    }
+    return 'unknown';
   }
 
   Future<void> addLearntWord(String word, String category) async {
@@ -92,7 +140,7 @@ class WordRepository {
       DateTime.now().millisecondsSinceEpoch,
       category,
     ]);
-    stmt.dispose();
+    stmt.close();
   }
 
   Future<List<Map<String, dynamic>>> getLearntWords() async {
@@ -118,21 +166,21 @@ class WordRepository {
       'UPDATE learnt_words SET is_favorite = ? WHERE word = ?',
     );
     stmt.execute([isFav ? 1 : 0, word.toLowerCase()]);
-    stmt.dispose();
+    stmt.close();
   }
 
   Future<void> deleteLearntWord(String word) async {
     final db = await _dbHelper.database;
     final stmt = db.prepare('DELETE FROM learnt_words WHERE word = ?');
     stmt.execute([word.toLowerCase()]);
-    stmt.dispose();
+    stmt.close();
   }
 
   Future<bool> isWordLearnt(String word) async {
     final db = await _dbHelper.database;
     final stmt = db.prepare('SELECT 1 FROM learnt_words WHERE word = ?');
     final ResultSet results = stmt.select([word.toLowerCase()]);
-    stmt.dispose();
+    stmt.close();
     return results.isNotEmpty;
   }
 }

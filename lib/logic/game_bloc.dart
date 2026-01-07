@@ -25,45 +25,10 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     : super(const GameState()) {
     on<GameStarted>(_onGameStarted);
     on<GuessSubmitted>(_onGuessSubmitted);
-    on<LetterEntered>(_onLetterEntered);
-    on<LetterDeleted>(_onLetterDeleted);
+    on<GuessEntered>(_onGuessEntered);
+    on<GuessDeleted>(_onGuessDeleted);
+    on<AddToLibraryRequested>(_onAddToLibraryRequested);
     on<HintRequested>(_onHintRequested);
-    on<SolutionRequested>(_onSolutionRequested);
-  }
-
-  Future<void> _onSolutionRequested(
-    SolutionRequested event,
-    Emitter<GameState> emit,
-  ) async {
-    if (state.status != GameStatus.playing) return;
-
-    final finishTime = DateTime.now();
-    final duration = finishTime
-        .difference(state.startTime ?? finishTime)
-        .inSeconds;
-
-    await _repository.addLearntWord(state.targetWord, state.category);
-
-    // Count as loss logic
-    if (state.level != null) {
-      await _statsRepository.recordGame(
-        levelKey: state.level!.key,
-        isWin: false,
-        score: 0,
-        durationInSeconds: duration,
-      );
-    }
-
-    emit(
-      state.copyWith(
-        status: GameStatus.lost,
-        errorMessage: 'Solution Revealed! Word added to Library.',
-        revealedIndices: List.generate(
-          state.targetWord.length,
-          (i) => i,
-        ).toSet(),
-      ),
-    );
   }
 
   Future<void> _onGameStarted(
@@ -72,20 +37,29 @@ class GameBloc extends Bloc<GameEvent, GameState> {
   ) async {
     try {
       print(
-        'Starting game with Level: ${event.level.key}, Cat: ${event.category}',
+        'Starting game with Level: ${event.level.key}, Cats: ${event.categories.join(', ')}',
       );
 
       final minLen = event.level.minLength;
       final maxLen = event.level.maxLength ?? 30;
 
-      final words = await _repository.getWords(event.category, minLen, maxLen);
+      final words = await _repository.getWords(
+        event.categories,
+        minLen,
+        maxLen,
+      );
+      final count = await _repository.getWordsCount(
+        event.categories,
+        minLen,
+        maxLen,
+      );
 
       if (words.isEmpty) {
         emit(
           state.copyWith(
             status: GameStatus.lost,
             errorMessage:
-                'No words found for category "${event.category}" with length ${event.level.minLength}-${event.level.maxLength}',
+                'No words found for categories "${event.categories.join(', ')}" with length ${event.level.minLength}-${event.level.maxLength}',
           ),
         );
         return;
@@ -101,18 +75,19 @@ class GameBloc extends Bloc<GameEvent, GameState> {
           guesses: const [],
           revealedIndices: const {},
           level: event.level,
-          category: event.category,
+          categories: event.categories,
           startTime: DateTime.now(),
           currentGuess: '',
           letterStatus: const {},
+          categoryWordCount: count,
         ),
       );
     } catch (e) {
-      emit(state.copyWith(errorMessage: 'Error starting game: $e'));
+      emit(state.copyWith(errorMessage: 'Failed to start game: $e'));
     }
   }
 
-  void _onLetterEntered(LetterEntered event, Emitter<GameState> emit) {
+  void _onGuessEntered(GuessEntered event, Emitter<GameState> emit) {
     if (state.status != GameStatus.playing) return;
     if (state.currentGuess.length >= state.targetWord.length) return;
 
@@ -124,7 +99,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     );
   }
 
-  void _onLetterDeleted(LetterDeleted event, Emitter<GameState> emit) {
+  void _onGuessDeleted(GuessDeleted event, Emitter<GameState> emit) {
     if (state.status != GameStatus.playing) return;
     if (state.currentGuess.isEmpty) return;
 
@@ -194,7 +169,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
 
       final score = 100;
 
-      await _repository.addLearntWord(state.targetWord, state.category);
+      // Note: Auto-add validation logic moved to explicit user action
 
       if (state.level != null) {
         await _statsRepository.recordGame(
@@ -217,6 +192,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
           status: GameStatus.won,
           currentGuess: '',
           letterStatus: newStatus,
+          isWordSaved: false,
         ),
       );
     } else {
@@ -260,6 +236,21 @@ class GameBloc extends Bloc<GameEvent, GameState> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _onAddToLibraryRequested(
+    AddToLibraryRequested event,
+    Emitter<GameState> emit,
+  ) async {
+    if (state.status != GameStatus.won || state.isWordSaved) return;
+
+    try {
+      final category = await _repository.getWordCategory(state.targetWord);
+      await _repository.addLearntWord(state.targetWord, category);
+      emit(state.copyWith(isWordSaved: true));
+    } catch (e) {
+      print('Error saving word: $e');
     }
   }
 

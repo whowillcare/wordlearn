@@ -9,13 +9,13 @@ abstract class GameEvent extends Equatable {
 }
 
 class GameStarted extends GameEvent {
-  final String category;
+  final List<String> categories;
   final GameLevel level;
 
-  const GameStarted({required this.category, required this.level});
+  const GameStarted({required this.categories, required this.level});
 
   @override
-  List<Object> get props => [category, level];
+  List<Object> get props => [categories, level];
 }
 
 class GuessSubmitted extends GameEvent {
@@ -25,21 +25,21 @@ class GuessSubmitted extends GameEvent {
   List<Object?> get props => [];
 }
 
-class LetterEntered extends GameEvent {
+class GuessEntered extends GameEvent {
   final String letter;
-  const LetterEntered(this.letter);
+  const GuessEntered(this.letter);
 
   @override
   List<Object?> get props => [letter];
 }
 
-class LetterDeleted extends GameEvent {
-  const LetterDeleted();
+class GuessDeleted extends GameEvent {
+  const GuessDeleted();
 
   @override
   List<Object?> get props => [];
 }
 
-class HintRequested extends GameEvent {}
+class AddToLibraryRequested extends GameEvent {}
 
-class SolutionRequested extends GameEvent {}
+class HintRequested extends GameEvent {}

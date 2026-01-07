@@ -43,6 +43,45 @@ class GuessGrid extends StatelessWidget {
   }
 
   Widget _buildRow(String word, int length, {required bool isSubmitted}) {
+    List<Color> colors = List.filled(length, Colors.transparent);
+    Color borderColor = Colors.grey[400]!;
+    Color textColor = Colors.black;
+
+    if (isSubmitted && word.isNotEmpty) {
+      textColor = Colors.white;
+      borderColor = Colors.transparent;
+
+      // Strict Wordle Logic
+      final targetChars = targetWord.split('');
+      final guessChars = word.split('');
+      final targetCounts = <String, int>{};
+
+      for (var char in targetChars) {
+        targetCounts[char] = (targetCounts[char] ?? 0) + 1;
+      }
+
+      // Pass 1: Greens
+      for (int i = 0; i < word.length; i++) {
+        if (guessChars[i] == targetChars[i]) {
+          colors[i] = Colors.green;
+          targetCounts[guessChars[i]] = targetCounts[guessChars[i]]! - 1;
+        }
+      }
+
+      // Pass 2: Yellows/Greys
+      for (int i = 0; i < word.length; i++) {
+        if (colors[i] == Colors.green) continue; // Already handled
+
+        final letter = guessChars[i];
+        if (targetCounts.containsKey(letter) && targetCounts[letter]! > 0) {
+          colors[i] = Colors.orange;
+          targetCounts[letter] = targetCounts[letter]! - 1;
+        } else {
+          colors[i] = Colors.grey[700]!;
+        }
+      }
+    }
+
     return Center(
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -54,9 +93,20 @@ class GuessGrid extends StatelessWidget {
               char = word[index];
             }
 
+            Color cellColor = Colors.transparent;
+            if (isSubmitted && index < word.length) {
+              cellColor = colors[index];
+            }
+
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 3.0),
-              child: _buildLetterBox(char, index, isSubmitted),
+              child: _buildLetterBox(
+                char,
+                isSubmitted,
+                cellColor,
+                borderColor,
+                textColor,
+              ),
             );
           }),
         ),
@@ -64,27 +114,15 @@ class GuessGrid extends StatelessWidget {
     );
   }
 
-  Widget _buildLetterBox(String char, int index, bool isSubmitted) {
-    Color color = Colors.transparent;
-    Color borderColor = Colors.grey[400]!;
-    Color textColor = Colors.black;
-
-    if (isSubmitted && char.isNotEmpty) {
-      textColor = Colors.white;
-      borderColor = Colors.transparent;
-
-      final targetChar = targetWord[index];
-      if (char == targetChar) {
-        color = Colors.green;
-      } else if (targetWord.contains(char)) {
-        // Simple logic for now, doesn't handle double letters perfectly visually in grid
-        // (logic is usually handled in logic layer for strict wordle)
-        color = Colors.orange;
-      } else {
-        color = Colors.grey[700]!;
-      }
-    } else if (char.isNotEmpty) {
-      borderColor = Colors.black; // Active typing
+  Widget _buildLetterBox(
+    String char,
+    bool isSubmitted,
+    Color color,
+    Color borderColor,
+    Color textColor,
+  ) {
+    if (char.isNotEmpty && !isSubmitted) {
+      borderColor = Colors.black;
     }
 
     return Container(
