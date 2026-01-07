@@ -1,0 +1,15 @@
+{
+  "appTitle": "WordLearn",
+  "@appTitle": {
+    "description": "The title of the application"
+  },
+  "gameWon": "You Won!",
+  "gameOver": "Game Over!",
+  "settings": "Settings",
+  "sound": "Sound",
+  "vipMode": "VIP Mode",
+  "language": "Language",
+  "play": "Play",
+  "selectCategory": "Select Category",
+  "library": "Library"
+}
