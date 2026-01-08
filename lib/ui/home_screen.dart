@@ -70,12 +70,14 @@ class _HomeScreenState extends State<HomeScreen> {
       _categories = cats;
       if (cats.isNotEmpty) {
         // Defaults
-        final savedDefault = settings.defaultCategory;
-        if (savedDefault != null && cats.contains(savedDefault)) {
-          if (savedDefault == 'all') {
-            _selectedCategories = {'all'};
-          } else {
-            _selectedCategories = {savedDefault};
+        // Defaults
+        final savedDefaults = settings.defaultCategories;
+        if (savedDefaults.isNotEmpty) {
+          final validSaved = savedDefaults
+              .where((c) => cats.contains(c) || c == 'all')
+              .toSet();
+          if (validSaved.isNotEmpty) {
+            _selectedCategories = validSaved;
           }
         }
       }
@@ -99,6 +101,9 @@ class _HomeScreenState extends State<HomeScreen> {
             initialSelected: _selectedCategories.toList(),
             onChanged: (newSelection) {
               setState(() => _selectedCategories = newSelection.toSet());
+              context.read<SettingsRepository>().setDefaultCategories(
+                newSelection,
+              );
             },
             scrollController: scrollController,
           );

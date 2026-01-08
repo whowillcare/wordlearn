@@ -6,10 +6,10 @@
 import 'dart:async' as _i4;
 
 import 'package:mockito/mockito.dart' as _i1;
-import 'package:mockito/src/dummies.dart' as _i7;
+import 'package:mockito/src/dummies.dart' as _i5;
 import 'package:word_learn_app/data/game_score.dart' as _i2;
-import 'package:word_learn_app/data/settings_repository.dart' as _i6;
-import 'package:word_learn_app/data/statistics_repository.dart' as _i5;
+import 'package:word_learn_app/data/settings_repository.dart' as _i7;
+import 'package:word_learn_app/data/statistics_repository.dart' as _i6;
 import 'package:word_learn_app/data/word_repository.dart' as _i3;
 
 // ignore_for_file: type=lint
@@ -83,13 +83,29 @@ class MockWordRepository extends _i1.Mock implements _i3.WordRepository {
           as _i4.Future<List<String>>);
 
   @override
-  _i4.Future<List<String>> getWords(
-    String? category,
+  _i4.Future<int> getWordsCount(
+    List<String>? categories,
     int? minLength,
     int? maxLength,
   ) =>
       (super.noSuchMethod(
-            Invocation.method(#getWords, [category, minLength, maxLength]),
+            Invocation.method(#getWordsCount, [
+              categories,
+              minLength,
+              maxLength,
+            ]),
+            returnValue: _i4.Future<int>.value(0),
+          )
+          as _i4.Future<int>);
+
+  @override
+  _i4.Future<List<String>> getWords(
+    List<String>? categories,
+    int? minLength,
+    int? maxLength,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#getWords, [categories, minLength, maxLength]),
             returnValue: _i4.Future<List<String>>.value(<String>[]),
           )
           as _i4.Future<List<String>>);
@@ -101,6 +117,19 @@ class MockWordRepository extends _i1.Mock implements _i3.WordRepository {
             returnValue: _i4.Future<int>.value(0),
           )
           as _i4.Future<int>);
+
+  @override
+  _i4.Future<String> getWordCategory(String? word) =>
+      (super.noSuchMethod(
+            Invocation.method(#getWordCategory, [word]),
+            returnValue: _i4.Future<String>.value(
+              _i5.dummyValue<String>(
+                this,
+                Invocation.method(#getWordCategory, [word]),
+              ),
+            ),
+          )
+          as _i4.Future<String>);
 
   @override
   _i4.Future<void> addLearntWord(String? word, String? category) =>
@@ -152,7 +181,7 @@ class MockWordRepository extends _i1.Mock implements _i3.WordRepository {
 ///
 /// See the documentation for Mockito's code generation for more information.
 class MockStatisticsRepository extends _i1.Mock
-    implements _i5.StatisticsRepository {
+    implements _i6.StatisticsRepository {
   MockStatisticsRepository() {
     _i1.throwOnMissingStub(this);
   }
@@ -191,7 +220,7 @@ class MockStatisticsRepository extends _i1.Mock
 ///
 /// See the documentation for Mockito's code generation for more information.
 class MockSettingsRepository extends _i1.Mock
-    implements _i6.SettingsRepository {
+    implements _i7.SettingsRepository {
   MockSettingsRepository() {
     _i1.throwOnMissingStub(this);
   }
@@ -213,12 +242,29 @@ class MockSettingsRepository extends _i1.Mock
   String get languageCode =>
       (super.noSuchMethod(
             Invocation.getter(#languageCode),
-            returnValue: _i7.dummyValue<String>(
+            returnValue: _i5.dummyValue<String>(
               this,
               Invocation.getter(#languageCode),
             ),
           )
           as String);
+
+  @override
+  List<String> get defaultCategories =>
+      (super.noSuchMethod(
+            Invocation.getter(#defaultCategories),
+            returnValue: <String>[],
+          )
+          as List<String>);
+
+  @override
+  _i4.Future<void> syncSettings() =>
+      (super.noSuchMethod(
+            Invocation.method(#syncSettings, []),
+            returnValue: _i4.Future<void>.value(),
+            returnValueForMissingStub: _i4.Future<void>.value(),
+          )
+          as _i4.Future<void>);
 
   @override
   _i4.Future<void> setSoundEnabled(bool? value) =>
@@ -251,6 +297,15 @@ class MockSettingsRepository extends _i1.Mock
   _i4.Future<void> setDefaultCategory(String? value) =>
       (super.noSuchMethod(
             Invocation.method(#setDefaultCategory, [value]),
+            returnValue: _i4.Future<void>.value(),
+            returnValueForMissingStub: _i4.Future<void>.value(),
+          )
+          as _i4.Future<void>);
+
+  @override
+  _i4.Future<void> setDefaultCategories(List<String>? values) =>
+      (super.noSuchMethod(
+            Invocation.method(#setDefaultCategories, [values]),
             returnValue: _i4.Future<void>.value(),
             returnValueForMissingStub: _i4.Future<void>.value(),
           )

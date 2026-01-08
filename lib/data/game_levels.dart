@@ -35,7 +35,7 @@ class GameLevel {
 const gameLevels = [
   GameLevel(number: 1, minLength: 2, maxLength: 3, key: 'casual'),
   GameLevel(number: 2, minLength: 3, maxLength: 4, key: 'interesting'),
-  GameLevel(number: 3, minLength: 5, key: 'classic'),
+  GameLevel(number: 3, minLength: 5, maxLength: 5, key: 'classic'),
   GameLevel(number: 4, minLength: 6, maxLength: 9, key: 'playable'),
   GameLevel(
     number: 5, // Re-sequencing number 7 -> 5 for logical progression

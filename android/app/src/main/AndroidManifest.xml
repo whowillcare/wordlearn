@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="word_learn_app"
+        android:label="Word-Le-Earn"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

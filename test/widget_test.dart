@@ -14,6 +14,47 @@ class MockWordRepository extends Mock implements WordRepository {
   Future<List<String>> getCategories() async => [];
 
   @override
+  Future<List<String>> getWords(
+    List<String> categories,
+    int minLength,
+    int maxLength,
+  ) async => [];
+
+  @override
+  Future<int> getWordsCount(
+    List<String> categories,
+    int minLength,
+    int maxLength,
+  ) async => 0;
+
+  @override
+  Future<String> getWordCategory(String word) async => 'unknown';
+
+  @override
+  Future<void> insertWord(String text, String category) async {}
+
+  @override
+  Future<void> bulkInsertWords(List<Map<String, dynamic>> words) async {}
+
+  @override
+  Future<void> addLearntWord(String word, String category) async {}
+
+  @override
+  Future<List<Map<String, dynamic>>> getLearntWords() async => [];
+
+  @override
+  Future<void> toggleFavorite(String word, bool isFav) async {}
+
+  @override
+  Future<void> deleteLearntWord(String word) async {}
+
+  @override
+  Future<bool> isWordLearnt(String word) async => false;
+
+  @override
+  Future<List<String>> searchCategories(String query) async => [];
+
+  @override
   Future<int> getWordCount() async => 0;
 }
 
@@ -32,6 +73,13 @@ class MockSettingsRepository extends Mock implements SettingsRepository {
   bool get isVip => false;
   @override
   String get languageCode => 'en';
+  @override
+  List<String> get defaultCategories => [];
+  @override
+  String? get defaultCategory => null;
+
+  @override
+  Future<void> syncSettings() async {}
 }
 
 void main() {

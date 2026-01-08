@@ -45,6 +45,9 @@ void main() {
       ).thenAnswer((_) async => ['apple']);
       when(mockWordRepository.isValidWord(any)).thenAnswer((_) async => false);
       when(mockSettingsRepository.isSoundEnabled).thenReturn(false);
+      when(
+        mockWordRepository.getWordsCount(any, any, any),
+      ).thenAnswer((_) async => 100);
 
       gameBloc = GameBloc(
         mockWordRepository,
@@ -58,14 +61,14 @@ void main() {
       'errorMessage is set when submitting invalid word',
       build: () => gameBloc,
       act: (bloc) async {
-        bloc.add(GameStarted(level: gameLevels[2], category: 'food'));
+        bloc.add(GameStarted(level: gameLevels[2], categories: ['food']));
         await Future.delayed(Duration.zero);
         // "apple" is 5 letters. Type 5 letters.
-        bloc.add(const LetterEntered('a'));
-        bloc.add(const LetterEntered('a'));
-        bloc.add(const LetterEntered('a'));
-        bloc.add(const LetterEntered('a'));
-        bloc.add(const LetterEntered('a'));
+        bloc.add(const GuessEntered('a'));
+        bloc.add(const GuessEntered('a'));
+        bloc.add(const GuessEntered('a'));
+        bloc.add(const GuessEntered('a'));
+        bloc.add(const GuessEntered('a'));
         bloc.add(const GuessSubmitted());
       },
       verify: (bloc) {
@@ -78,17 +81,17 @@ void main() {
       'errorMessage is cleared when letter is deleted',
       build: () => gameBloc,
       act: (bloc) async {
-        bloc.add(GameStarted(level: gameLevels[2], category: 'food'));
+        bloc.add(GameStarted(level: gameLevels[2], categories: ['food']));
         // Type invalid word
-        bloc.add(const LetterEntered('x'));
-        bloc.add(const LetterEntered('x'));
-        bloc.add(const LetterEntered('x'));
-        bloc.add(const LetterEntered('x'));
-        bloc.add(const LetterEntered('x'));
+        bloc.add(const GuessEntered('x'));
+        bloc.add(const GuessEntered('x'));
+        bloc.add(const GuessEntered('x'));
+        bloc.add(const GuessEntered('x'));
+        bloc.add(const GuessEntered('x'));
         bloc.add(const GuessSubmitted());
 
         // Delete a letter
-        bloc.add(const LetterDeleted());
+        bloc.add(const GuessDeleted());
       },
       skip: 0, // Check all emissions
       verify: (bloc) {
@@ -103,19 +106,19 @@ void main() {
       'errorMessage is cleared when letter is entered',
       build: () => gameBloc,
       act: (bloc) async {
-        bloc.add(GameStarted(level: gameLevels[2], category: 'food'));
+        bloc.add(GameStarted(level: gameLevels[2], categories: ['food']));
         // Type invalid word
-        bloc.add(const LetterEntered('x'));
-        bloc.add(const LetterEntered('x'));
-        bloc.add(const LetterEntered('x'));
-        bloc.add(const LetterEntered('x'));
-        bloc.add(const LetterEntered('x'));
+        bloc.add(const GuessEntered('x'));
+        bloc.add(const GuessEntered('x'));
+        bloc.add(const GuessEntered('x'));
+        bloc.add(const GuessEntered('x'));
+        bloc.add(const GuessEntered('x'));
         bloc.add(const GuessSubmitted());
 
         // Delete to make space
-        bloc.add(const LetterDeleted());
+        bloc.add(const GuessDeleted());
         // Enter new letter
-        bloc.add(const LetterEntered('y'));
+        bloc.add(const GuessEntered('y'));
       },
       wait: const Duration(milliseconds: 100),
       verify: (bloc) {

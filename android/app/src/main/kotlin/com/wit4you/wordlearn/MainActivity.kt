@@ -1,4 +1,4 @@
-package com.example.word_learn_app
+package com.wit4you.wordlearn
 
 import io.flutter.embedding.android.FlutterActivity
 

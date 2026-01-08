@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "818245526732",
+    "project_id": "word-le-earn",
+    "storage_bucket": "word-le-earn.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:818245526732:android:0288892faf5e780f858e69",
+        "android_client_info": {
+          "package_name": "com.wit4you.wordlearn"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAzNLIMgocmoy4MONz5cPCIu-KIX-lzhDk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

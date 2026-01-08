@@ -10,8 +10,17 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'l10n/app_localizations.dart';
 import 'data/settings_repository.dart';
 
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart'; // for kIsWeb if needed, or just default
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    print("Firebase init failed: $e");
+  }
+
   final wordRepo = WordRepository();
   final statsRepo = await StatisticsRepository.init();
   final settingsRepo = await SettingsRepository.init();

@@ -23,13 +23,41 @@ class MockWordRepository extends Mock implements WordRepository {
 
   @override
   Future<List<String>> getWords(
-    String category,
+    List<String> categories,
     int minLength,
     int maxLength,
   ) async => [];
 
   @override
   Future<void> insertWord(String text, String category) async {}
+
+  @override
+  Future<int> getWordsCount(
+    List<String> categories,
+    int minLength,
+    int maxLength,
+  ) async => 0;
+
+  @override
+  Future<String> getWordCategory(String word) async => 'unknown';
+
+  @override
+  Future<void> addLearntWord(String word, String category) async {}
+
+  @override
+  Future<List<Map<String, dynamic>>> getLearntWords() async => [];
+
+  @override
+  Future<void> toggleFavorite(String word, bool isFav) async {}
+
+  @override
+  Future<void> deleteLearntWord(String word) async {}
+
+  @override
+  Future<bool> isWordLearnt(String word) async => false;
+
+  @override
+  Future<List<String>> searchCategories(String query) async => [];
 }
 
 void main() {

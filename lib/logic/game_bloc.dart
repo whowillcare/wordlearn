@@ -65,7 +65,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
         return;
       }
 
-      final target = words[_random.nextInt(words.length)];
+      final target = words[_random.nextInt(words.length)].toLowerCase();
       print('Target word selected: $target');
 
       emit(
