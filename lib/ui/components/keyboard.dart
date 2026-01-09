@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import '../../logic/game_state.dart';
 
 class Keyboard extends StatelessWidget {
+  final bool allowSpecialChars;
   final Map<String, LetterStatus> letterStatus;
-  final Function(String) onKeyTap;
+  final void Function(String) onKeyTap;
   final VoidCallback onDeleteTap;
   final VoidCallback onEnterTap;
 
@@ -13,6 +14,7 @@ class Keyboard extends StatelessWidget {
     required this.onKeyTap,
     required this.onDeleteTap,
     required this.onEnterTap,
+    this.allowSpecialChars = false,
   });
 
   @override
@@ -35,11 +37,21 @@ class Keyboard extends StatelessWidget {
             ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
             keyHeight,
             keySpacing,
-            padding: 20.0,
-          ), // Padding to center row 2 visualy
+            padding: 2.0, // Reduced padding for tighter fit
+          ),
           const SizedBox(height: keySpacing),
           _buildRow(
-            ['z', 'x', 'c', 'v', 'b', 'n', 'm'],
+            [
+              if (allowSpecialChars) '-',
+              if (allowSpecialChars) '\'',
+              'z',
+              'x',
+              'c',
+              'v',
+              'b',
+              'n',
+              'm',
+            ],
             keyHeight,
             keySpacing,
             hasSpecialKeys: true,
@@ -63,10 +75,11 @@ class Keyboard extends StatelessWidget {
         children: [
           if (hasSpecialKeys)
             _buildActionKey(
-              label: 'ENTER',
+              icon: Icons.check,
               onTap: onEnterTap,
               height: height,
               flex: 3,
+              color: Colors.greenAccent.shade700,
             ),
           if (hasSpecialKeys) SizedBox(width: spacing),
           ...keys.map((key) {
@@ -81,10 +94,11 @@ class Keyboard extends StatelessWidget {
           if (hasSpecialKeys) SizedBox(width: spacing),
           if (hasSpecialKeys)
             _buildActionKey(
-              label: '⌫',
+              icon: Icons.backspace_outlined,
               onTap: onDeleteTap,
               height: height,
               flex: 3,
+              color: Colors.redAccent.shade200,
             ),
         ],
       ),
@@ -93,19 +107,26 @@ class Keyboard extends StatelessWidget {
 
   Widget _buildKey(String letter, double height) {
     final status = letterStatus[letter] ?? LetterStatus.initial;
-    final color = _getColor(status);
+    final gradient = _getGradient(status);
     final textColor = status == LetterStatus.initial
-        ? Colors.black
+        ? Colors.deepPurple
         : Colors.white;
 
-    return InkWell(
+    return GestureDetector(
       onTap: () => onKeyTap(letter),
       child: Container(
         height: height,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(4),
+          gradient: gradient,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 2,
+              offset: const Offset(0, 2),
+            ),
+          ],
+          borderRadius: BorderRadius.circular(24), // Pill shape
         ),
         child: Text(
           letter.toUpperCase(),
@@ -120,46 +141,55 @@ class Keyboard extends StatelessWidget {
   }
 
   Widget _buildActionKey({
-    required String label,
+    required IconData icon,
     required VoidCallback onTap,
     required double height,
+    required Color color,
     int flex = 1,
   }) {
     return Expanded(
       flex: flex,
-      child: InkWell(
+      child: GestureDetector(
         onTap: onTap,
         child: Container(
           height: height,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: Colors.grey[300],
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
+            gradient: LinearGradient(
+              colors: [color.withOpacity(0.8), color],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: color.withOpacity(0.4),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
+          child: Icon(icon, color: Colors.white, size: 20),
         ),
       ),
     );
   }
 
-  Color _getColor(LetterStatus status) {
+  Gradient _getGradient(LetterStatus status) {
     switch (status) {
       case LetterStatus.correct:
-        return Colors.green;
+        return const LinearGradient(
+          colors: [Color(0xFF66BB6A), Color(0xFF43A047)],
+        );
       case LetterStatus.wrongPosition:
-        return Colors.orange;
+        return const LinearGradient(
+          colors: [Color(0xFFFFA726), Color(0xFFFB8C00)],
+        );
       case LetterStatus.notInWord:
-        return Colors.grey[700]!;
+        return LinearGradient(colors: [Colors.grey[400]!, Colors.grey[600]!]);
       case LetterStatus.initial:
       default:
-        return Colors.grey[300]!;
+        return const LinearGradient(colors: [Colors.white, Color(0xFFF3E5F5)]);
     }
   }
 }

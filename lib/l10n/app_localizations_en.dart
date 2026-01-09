@@ -37,4 +37,71 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get library => 'Library';
+
+  @override
+  String get points => 'Points';
+
+  @override
+  String get dailyChallenge => 'Daily Challenge';
+
+  @override
+  String get shop => 'Shop';
+
+  @override
+  String get searchWords => 'Search your words...';
+
+  @override
+  String get mastered => 'Mastered';
+
+  @override
+  String get learning => 'Learning';
+
+  @override
+  String get newWord => 'New';
+
+  @override
+  String get level => 'Level';
+
+  @override
+  String get score => 'Score';
+
+  @override
+  String get hint => 'Hint';
+
+  @override
+  String get shuffle => 'Shuffle';
+
+  @override
+  String get allowSpecialChars => 'Allow Special Characters';
+
+  @override
+  String get allowSpecialCharsDesc =>
+      'Include words with hyphens and apostrophes';
+
+  @override
+  String get theme => 'Theme';
+
+  @override
+  String get about => 'About';
+
+  @override
+  String get filter => 'Filter';
+
+  @override
+  String get favoritesOnly => 'Favorites Only';
+
+  @override
+  String get allCategories => 'All Categories';
+
+  @override
+  String get noWordsLearnt => 'No words learnt yet!';
+
+  @override
+  String get noResults => 'No results found.';
+
+  @override
+  String get undo => 'UNDO';
+
+  @override
+  String get removed => 'Removed';
 }

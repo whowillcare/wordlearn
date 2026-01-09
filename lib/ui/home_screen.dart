@@ -4,10 +4,13 @@ import '../data/word_repository.dart';
 import '../data/game_levels.dart';
 import '../data/ingestion_result.dart';
 import '../data/settings_repository.dart';
-import '../utils/category_utils.dart';
 import 'game_screen.dart';
 import 'settings_screen.dart';
 import 'library_screen.dart';
+import '../l10n/app_localizations.dart';
+
+import 'dart:math' as math;
+import 'dart:ui';
 
 class HomeScreen extends StatefulWidget {
   final IngestionResult? ingestionResult;
@@ -17,200 +20,225 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  // Using Set for easier management, converted to List for API
-  Set<String> _selectedCategories = {'all'};
-  GameLevel _selectedLevel = gameLevels.first;
-  List<String> _categories = [];
-  bool _isLoading = true;
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
+  int _selectedIndex = 0;
+  late AnimationController _gradientController;
 
   @override
   void initState() {
     super.initState();
-    _loadCategories();
-
-    // Show diagnostics if provided
-    if (widget.ingestionResult != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        // Only show if count is 0 or errors exist
-        if (widget.ingestionResult!.finalCount == 0 ||
-            widget.ingestionResult!.errors.isNotEmpty) {
-          showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Data Load Status'),
-              content: Text(widget.ingestionResult.toString()),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('OK'),
-                ),
-              ],
-            ),
-          );
-        }
-      });
-    }
+    _gradientController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 10),
+    )..repeat(reverse: true);
   }
 
-  Future<void> _loadCategories() async {
-    final repo = context.read<WordRepository>();
-    final settings = context.read<SettingsRepository>();
-    final cats = await repo.getCategories();
-
-    // Sort
-    cats.sort(CategoryUtils.compareCategories);
-
-    // Add 'all' if not present
-    if (!cats.contains('all')) {
-      cats.insert(0, 'all');
-    }
-
-    setState(() {
-      _categories = cats;
-      if (cats.isNotEmpty) {
-        // Defaults
-        // Defaults
-        final savedDefaults = settings.defaultCategories;
-        if (savedDefaults.isNotEmpty) {
-          final validSaved = savedDefaults
-              .where((c) => cats.contains(c) || c == 'all')
-              .toSet();
-          if (validSaved.isNotEmpty) {
-            _selectedCategories = validSaved;
-          }
-        }
-      }
-      _isLoading = false;
-    });
-  }
-
-  void _showCategoryPicker() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.9,
-        minChildSize: 0.5,
-        maxChildSize: 1.0,
-        expand: false,
-        builder: (context, scrollController) {
-          return CategoryPicker(
-            categories: _categories,
-            initialSelected: _selectedCategories.toList(),
-            onChanged: (newSelection) {
-              setState(() => _selectedCategories = newSelection.toSet());
-              context.read<SettingsRepository>().setDefaultCategories(
-                newSelection,
-              );
-            },
-            scrollController: scrollController,
-          );
-        },
-      ),
-    );
-  }
-
-  String get _categoryButtonText {
-    if (_selectedCategories.contains('all')) return 'Everything';
-    if (_selectedCategories.isEmpty) return 'Select Category';
-    if (_selectedCategories.length == 1) {
-      return CategoryUtils.formatName(_selectedCategories.first);
-    }
-    return '${_selectedCategories.length} Categories Selected';
+  @override
+  void dispose() {
+    _gradientController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
+    final l10n = AppLocalizations.of(context)!;
+
+    // Pages for Bottom Nav
+    final List<Widget> pages = [
+      _HomeContent(ingestionResult: widget.ingestionResult),
+      const LibraryScreen(),
+      _PlaceholderScreen(title: l10n.shop),
+      const SettingsScreen(),
+    ];
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('WordLearn'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.book),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const LibraryScreen()),
+      extendBody: true, // Allow body to go behind nav bar
+      body: Stack(
+        children: [
+          // 1. Dynamic Mesh Gradient Background
+          Positioned.fill(
+            child: AnimatedBuilder(
+              animation: _gradientController,
+              builder: (context, child) {
+                return CustomPaint(
+                  painter: MeshGradientPainter(
+                    animationValue: _gradientController.value,
+                  ),
+                );
+              },
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const SettingsScreen()),
+
+          // 2. Content
+          SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                _buildGamificationHeader(context),
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: pages[_selectedIndex],
+                  ),
+                ),
+                // Add padding for bottom nav
+                const SizedBox(height: 80),
+              ],
             ),
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      bottomNavigationBar: _buildGlassBottomNav(l10n),
+    );
+  }
+
+  Widget _buildGlassBottomNav(AppLocalizations l10n) {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      height: 70,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: Colors.white.withOpacity(0.2)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(30),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildNavItem(0, Icons.home_rounded, l10n.appTitle),
+              _buildNavItem(1, Icons.menu_book_rounded, l10n.library),
+              _buildNavItem(2, Icons.storefront_rounded, l10n.shop),
+              _buildNavItem(3, Icons.settings, l10n.settings),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(int index, IconData icon, String label) {
+    final isSelected = _selectedIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedIndex = index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Colors.white.withOpacity(0.3)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+        ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Select Category:', style: TextStyle(fontSize: 18)),
-            const SizedBox(height: 8),
-            InkWell(
-              onTap: _showCategoryPicker,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 16,
+            Icon(
+              icon,
+              color: isSelected ? Colors.white : Colors.white70,
+              size: 24,
+            ),
+            if (isSelected) ...[
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
                 ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGamificationHeader(BuildContext context) {
+    const points = 1250;
+    const isVip = true;
+    final l10n = AppLocalizations.of(context)!;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+      child: GlassContainer(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black26, blurRadius: 4),
+                ],
+              ),
+              child: const CircleAvatar(
+                backgroundColor: Colors.white,
+                radius: 18,
+                child: Icon(Icons.person, color: Colors.deepPurple),
+              ),
+            ),
+            const SizedBox(width: 12),
+            if (isVip)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(4),
+                  gradient: const LinearGradient(
+                    colors: [Colors.amber, Colors.orange],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black26, blurRadius: 4),
+                  ],
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    const Icon(Icons.star, size: 14, color: Colors.white),
+                    const SizedBox(width: 4),
                     Text(
-                      _categoryButtonText,
-                      style: const TextStyle(fontSize: 16),
+                      l10n.vipMode.toUpperCase(),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10,
+                        color: Colors.white,
+                      ),
                     ),
-                    const Icon(Icons.arrow_drop_down),
                   ],
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-            const Text('Select Level:', style: TextStyle(fontSize: 18)),
-            DropdownButton<GameLevel>(
-              value: _selectedLevel,
-              isExpanded: true,
-              items: gameLevels.map((l) {
-                return DropdownMenuItem(
-                  value: l,
-                  child: Text(
-                    '${l.key.toUpperCase()} (Len: ${l.minLength}-${l.maxLength ?? "?"})',
-                  ),
-                );
-              }).toList(),
-              onChanged: (val) {
-                if (val != null) setState(() => _selectedLevel = val);
-              },
-            ),
             const Spacer(),
-            ElevatedButton(
-              onPressed: _selectedCategories.isEmpty
-                  ? null
-                  : () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => GameScreen(
-                            categories: _selectedCategories.toList(),
-                            level: _selectedLevel,
-                          ),
-                        ),
-                      );
-                    },
-              child: const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Text('START GAME', style: TextStyle(fontSize: 20)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withOpacity(0.1)),
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    "$points",
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.diamond, size: 16, color: Colors.cyanAccent),
+                ],
               ),
             ),
           ],
@@ -220,122 +248,559 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class CategoryPicker extends StatefulWidget {
-  final List<String> categories;
-  final List<String> initialSelected;
-  final ValueChanged<List<String>> onChanged;
-  final ScrollController scrollController;
-
-  const CategoryPicker({
-    super.key,
-    required this.categories,
-    required this.initialSelected,
-    required this.onChanged,
-    required this.scrollController,
-  });
+class _HomeContent extends StatefulWidget {
+  final IngestionResult? ingestionResult;
+  const _HomeContent({this.ingestionResult});
 
   @override
-  State<CategoryPicker> createState() => _CategoryPickerState();
+  State<_HomeContent> createState() => _HomeContentState();
 }
 
-class _CategoryPickerState extends State<CategoryPicker> {
-  late List<String> _filtered;
-  late Set<String> _currentSelection;
-  final TextEditingController _searchCtrl = TextEditingController();
+class _HomeContentState extends State<_HomeContent> {
+  String _formatCategory(String tag) {
+    if (tag == 'all') return 'All Categories';
+    // Friendly name mapping
+    final Map<String, String> displayNames = {
+      'freq': 'Most Frequent',
+      'grade-1': 'Grade 1',
+      'grade-2': 'Grade 2',
+      'grade-3': 'Grade 3',
+      'grade-4': 'Grade 4',
+      'grade-5': 'Grade 5',
+      'grade-6': 'Grade 6',
+      'grade-7': 'Grade 7',
+      'grade-8': 'Grade 8',
+      'grade-9': 'Grade 9',
+      'grade-10': 'Grade 10',
+      'grade-11': 'Grade 11',
+      'grade-12': 'Grade 12',
+      'svl': 'Sec. School Voc.',
+      'msvl': 'Mid. School Voc.',
+      'tof': 'TOEFL',
+      'sat': 'S.A.T.',
+      'gre': 'GRE',
+      'ielts': 'IELTS',
+      'svl - math': 'Sec. School Math',
+      'svl - biology': 'Sec. School Biology',
+      'svl - chemistry': 'Sec. School Chemistry',
+      'svl - ecnomics': 'Sec. School Economics',
+      'svl - english': 'Sec. School English',
+      'svl - geography': 'Sec. School Geography',
+      'svl - history': 'Sec. School History',
+      'svl - physics': 'Sec. School Physics',
+      'academic (avl)': 'Academic (AVL)',
+      'science word list': 'Science Word List',
+    };
 
-  @override
-  void initState() {
-    super.initState();
-    _filtered = widget.categories;
-    _currentSelection = widget.initialSelected.toSet();
+    if (displayNames.containsKey(tag)) return displayNames[tag]!;
+
+    return tag
+        .split('-')
+        .map((word) {
+          if (word.isEmpty) return '';
+          return word[0].toUpperCase() + word.substring(1);
+        })
+        .join(' ');
   }
 
-  void _filter(String query) {
-    if (query.isEmpty) {
-      setState(() => _filtered = widget.categories);
-    } else {
-      setState(() {
-        _filtered = widget.categories.where((c) {
-          final nice = CategoryUtils.formatName(c).toLowerCase();
-          return nice.contains(query.toLowerCase());
-        }).toList();
-      });
-    }
-  }
-
-  void _toggle(String category) {
-    setState(() {
-      if (category == 'all') {
-        _currentSelection = {'all'};
-      } else {
-        _currentSelection.remove('all');
-        if (_currentSelection.contains(category)) {
-          _currentSelection.remove(category);
-        } else {
-          _currentSelection.add(category);
-        }
-
-        if (_currentSelection.isEmpty) {
-          _currentSelection = {'all'}; // Fallback to all if nothing selected
-        }
-      }
-      widget.onChanged(_currentSelection.toList());
-    });
+  void _navigateToSettings() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: TextField(
-            controller: _searchCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Search Categories',
-              prefixIcon: Icon(Icons.search),
-              border: OutlineInputBorder(),
-            ),
-            onChanged: _filter,
-          ),
-        ),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 50),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                "${_currentSelection.length} selected",
-                style: const TextStyle(fontWeight: FontWeight.bold),
+    final l10n = AppLocalizations.of(context)!;
+
+    // Watch settings changes directly in build to trigger rebuilds
+    final settings = context.watch<SettingsRepository>();
+
+    // Derive Level Summary
+    final levelKey = settings.gameLevel;
+    final level = gameLevels.firstWhere(
+      (l) => l.key == levelKey,
+      orElse: () => gameLevels[2],
+    );
+    final levelSummary =
+        "${level.name} (${level.minLength}-${level.maxLength ?? '+'})";
+
+    // Derive Category Summary
+    final cats = settings.defaultCategories;
+    String categorySummary;
+    if (cats.isEmpty || cats.contains('all')) {
+      categorySummary = "All Categories";
+    } else if (cats.length == 1) {
+      categorySummary = _formatCategory(cats.first);
+    } else {
+      categorySummary = "${cats.length} Categories Selected";
+    }
+
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const SizedBox(height: 60),
+
+          // Hero Title
+          ShaderMask(
+            shaderCallback: (bounds) => const LinearGradient(
+              colors: [Colors.white, Colors.white70],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ).createShader(bounds),
+            child: Text(
+              l10n.appTitle.toUpperCase(),
+              style: const TextStyle(
+                fontSize: 48,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 4,
+                color: Colors.white,
+                shadows: [
+                  Shadow(
+                    color: Colors.black26,
+                    offset: Offset(0, 4),
+                    blurRadius: 10,
+                  ),
+                ],
               ),
             ),
           ),
-        ),
-        Expanded(
-          child: ListView.separated(
-            controller: widget.scrollController,
-            itemCount: _filtered.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final cat = _filtered[index];
-              final isSelected = _currentSelection.contains(cat);
-              return CheckboxListTile(
-                title: Text(CategoryUtils.formatName(cat)),
-                value: isSelected,
-                onChanged: (_) => _toggle(cat),
+
+          const SizedBox(height: 40),
+
+          // --- Category Section (Read Only) ---
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: _buildSectionHeader("CATEGORIES"),
+          ),
+          const SizedBox(height: 12),
+          GestureDetector(
+            onTap: _navigateToSettings,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: NeonCapsule(
+                label: categorySummary,
+                isSelected: true,
+                onTap: _navigateToSettings,
+                showCheck: false,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 30),
+
+          // --- Word Length Section (Read Only) ---
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: _buildSectionHeader("WORD LENGTH"),
+          ),
+          const SizedBox(height: 12),
+          GestureDetector(
+            onTap: _navigateToSettings,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: NeonCapsule(
+                label: levelSummary,
+                isSelected: true,
+                onTap: _navigateToSettings,
+                showCheck: false,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 48),
+
+          // Hero Play Button
+          GestureDetector(
+            onTap: () {
+              final categories = settings.defaultCategories;
+              final levelKey = settings.gameLevel;
+              final level = gameLevels.firstWhere(
+                (l) => l.key == levelKey,
+                orElse: () => gameLevels[2],
+              );
+
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => GameScreen(
+                    categories: categories.isEmpty ? ['all'] : categories,
+                    level: level,
+                  ),
+                ),
               );
             },
+            child: Container(
+              width: 220,
+              height: 80,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFFAB40), Color(0xFFFF6D00)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(40),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFFF6D00).withOpacity(0.5),
+                    offset: const Offset(0, 10),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                  ),
+                  const BoxShadow(
+                    color: Colors.white30,
+                    offset: Offset(0, -2),
+                    blurRadius: 2,
+                    spreadRadius: 0,
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    l10n.play.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 32,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 2,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black12,
+                          offset: Offset(0, 2),
+                          blurRadius: 2,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(
+                    Icons.play_arrow_rounded,
+                    color: Colors.white,
+                    size: 40,
+                  ),
+                ],
+              ),
+            ),
           ),
+
+          const SizedBox(height: 40),
+
+          // Daily Challenge Card
+          GlassContainer(
+            margin: const EdgeInsets.symmetric(horizontal: 32),
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      l10n.dailyChallenge.toUpperCase(),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const Icon(
+                      Icons.calendar_month_rounded,
+                      size: 20,
+                      color: Colors.white,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: 0.6,
+                    backgroundColor: Colors.white24,
+                    color: const Color(0xFF69F0AE),
+                    minHeight: 8,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Text(
+                      "3/5 Words",
+                      style: TextStyle(fontSize: 12, color: Colors.white70),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        "100 XP",
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 80),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Row(
+      children: [
+        Icon(
+          title == "CATEGORIES"
+              ? Icons.category_rounded
+              : Icons.straighten_rounded,
+          color: Colors.white70,
+          size: 16,
         ),
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: ElevatedButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Done"),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.8),
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.2,
+            fontSize: 12,
           ),
         ),
       ],
     );
+  }
+}
+
+class _PlaceholderScreen extends StatelessWidget {
+  final String title;
+  const _PlaceholderScreen({required this.title});
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 24,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
+}
+
+// --- Components ---
+
+class GlassContainer extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+  final EdgeInsetsGeometry? margin;
+  final double? width;
+  final double? height;
+
+  const GlassContainer({
+    super.key,
+    required this.child,
+    this.padding,
+    this.margin,
+    this.width,
+    this.height,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: margin,
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Padding(padding: padding ?? EdgeInsets.zero, child: child),
+        ),
+      ),
+    );
+  }
+}
+
+class NeonCapsule extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final bool isLocked;
+  final bool showCheck;
+  final VoidCallback onTap;
+
+  const NeonCapsule({
+    super.key,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+    this.isLocked = false,
+    this.showCheck = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        decoration: BoxDecoration(
+          color: isLocked
+              ? Colors.black.withOpacity(0.3)
+              : (isSelected ? Colors.white : Colors.white.withOpacity(0.1)),
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(
+            color: isLocked
+                ? Colors.grey.withOpacity(0.3)
+                : (isSelected ? Colors.white : Colors.white.withOpacity(0.3)),
+            width: isSelected ? 0 : 1.5,
+          ),
+          boxShadow: isSelected && !isLocked
+              ? [
+                  BoxShadow(
+                    color: Colors.white.withOpacity(0.6),
+                    blurRadius: 12,
+                    spreadRadius: 1,
+                  ),
+                  const BoxShadow(
+                    color: Colors.white,
+                    blurRadius: 4,
+                    spreadRadius: 0,
+                  ),
+                ]
+              : [],
+        ),
+        alignment: Alignment.center,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isLocked) ...[
+              const Icon(Icons.lock_rounded, color: Colors.white54, size: 14),
+              const SizedBox(width: 6),
+            ],
+            Text(
+              label.toUpperCase(),
+              style: TextStyle(
+                color: isLocked
+                    ? Colors.white54
+                    : (isSelected ? Colors.deepPurple : Colors.white),
+                fontWeight: FontWeight.w800,
+                fontSize: 12,
+                letterSpacing: 1,
+              ),
+            ),
+            if (showCheck && isSelected && !isLocked) ...[
+              const SizedBox(width: 6),
+              const Icon(
+                Icons.check_circle_rounded,
+                color: Colors.deepPurple,
+                size: 14,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Custom Painter for Mesh Gradient
+class MeshGradientPainter extends CustomPainter {
+  final double animationValue;
+
+  MeshGradientPainter({required this.animationValue});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final t = animationValue * 2 * math.pi;
+    final center = Offset(size.width / 2, size.height / 2);
+
+    // Warm, Game-like Palette
+    final colors = [
+      const Color(0xFF6A1B9A), // Deep Purple
+      const Color(0xFF8E24AA), // Purple
+      const Color(0xFFD81B60), // Pink
+      const Color(0xFFFF6D00), // Orange
+      const Color(0xFFFFD600), // Yellow
+    ];
+
+    // Create a mesh of points
+    final paint = Paint()
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 80);
+
+    // Draw dynamic blobs
+    void drawBlob(Offset offset, Color color, double radius) {
+      final p = Paint()
+        ..color = color.withOpacity(0.6)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 100);
+      canvas.drawCircle(offset, radius, p);
+    }
+
+    // Moving blobs
+    drawBlob(
+      Offset(
+        size.width * 0.2 + math.cos(t) * 50,
+        size.height * 0.3 + math.sin(t) * 50,
+      ),
+      colors[0],
+      size.width * 0.5,
+    );
+
+    drawBlob(
+      Offset(
+        size.width * 0.8 - math.sin(t) * 50,
+        size.height * 0.2 + math.cos(t) * 50,
+      ),
+      colors[3],
+      size.width * 0.4,
+    );
+
+    drawBlob(
+      Offset(
+        size.width * 0.5 + math.sin(t * 0.5) * 100,
+        size.height * 0.8 + math.cos(t * 0.5) * 30,
+      ),
+      colors[2],
+      size.width * 0.6,
+    );
+
+    // Overlay to ensure text legibility (darken slightly)
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Paint()..color = Colors.black.withOpacity(0.1),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant MeshGradientPainter oldDelegate) {
+    return oldDelegate.animationValue != animationValue;
   }
 }

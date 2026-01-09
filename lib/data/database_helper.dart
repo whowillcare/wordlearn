@@ -24,57 +24,69 @@ class DatabaseHelper {
     final db = sqlite3.open(filename);
 
     db.execute('''
+      -- Words Table
       CREATE TABLE IF NOT EXISTS words (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        text TEXT NOT NULL,
+        text TEXT NOT NULL UNIQUE,
         length INTEGER NOT NULL,
-        category TEXT NOT NULL
+        phonetic TEXT,
+        definition TEXT
       );
-      CREATE INDEX IF NOT EXISTS idx_category_length ON words (category, length);
+      
+      -- Categories Table
+      CREATE TABLE IF NOT EXISTS categories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tag TEXT NOT NULL UNIQUE,
+        type TEXT NOT NULL
+      );
 
-      CREATE TABLE IF NOT EXISTS learnt_words (
-        word TEXT PRIMARY KEY,
-        date_added INTEGER NOT NULL
+      -- Junction Table (Word <-> Category)
+      CREATE TABLE IF NOT EXISTS word_categories (
+        word_id INTEGER NOT NULL,
+        category_id INTEGER NOT NULL,
+        PRIMARY KEY (word_id, category_id),
+        FOREIGN KEY (word_id) REFERENCES words (id) ON DELETE CASCADE,
+        FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE CASCADE
       );
+
+      -- Synonyms Table (Thesaurus)
+      CREATE TABLE IF NOT EXISTS synonyms (
+        word_id INTEGER NOT NULL,
+        synonym_text TEXT NOT NULL,
+        PRIMARY KEY (word_id, synonym_text),
+        FOREIGN KEY (word_id) REFERENCES words (id) ON DELETE CASCADE
+      );
+
+      -- User Progress (Legacy 'learnt_words' replaced/upgraded)
+      CREATE TABLE IF NOT EXISTS user_progress (
+        word_id INTEGER PRIMARY KEY,
+        status TEXT DEFAULT 'New', -- New, Learnt, Mastered
+        next_review_date INTEGER,
+        synonyms_found_count INTEGER DEFAULT 0,
+        FOREIGN KEY (word_id) REFERENCES words (id) ON DELETE CASCADE
+      );
+      
+      -- Indices for performance
+      CREATE INDEX IF NOT EXISTS idx_word_text ON words(text);
+      CREATE INDEX IF NOT EXISTS idx_category_tag ON categories(tag);
     ''');
 
+    // Simple count check to trigger population
     final result = db.select('SELECT count(*) as count FROM words');
     if (result.isNotEmpty && result.first['count'] == 0) {
       await _populateDatabase(db);
-    } else {
-      // Check for missing freq data (recovery from previous bug)
-      final freqResult = db.select(
-        "SELECT count(*) as count FROM words WHERE category = 'freq'",
-      );
-      if (freqResult.isNotEmpty && freqResult.first['count'] == 0) {
-        print('Detecting missing freq data. Attempting to populate...');
-        await _populateDatabase(db, onlyFiles: ['assets/data/freq.json']);
-      }
     }
 
-    // Migrations
-    try {
-      db.execute(
-        'ALTER TABLE learnt_words ADD COLUMN is_favorite INTEGER DEFAULT 0',
-      );
-    } catch (_) {} // Column likely exists
-
-    try {
-      db.execute("DELETE FROM words WHERE category = 'swear'");
-    } catch (_) {}
-
-    try {
-      db.execute('ALTER TABLE learnt_words ADD COLUMN category TEXT');
-    } catch (_) {} // Column likely exists
+    // Legacy migration support (Optional: if we want to migrate old 'learnt_words' to 'user_progress',
+    // we would do it here, but for this complete overhaul, we start fresh or assume user is ok with reset
+    // strictly for the structure update).
+    // For now, we leave legacy 'learnt_words' as is to avoid data loss, but the app will use 'user_progress'.
 
     return db;
   }
 
   Future<void> _populateDatabase(Database db, {List<String>? onlyFiles}) async {
     try {
-      // final manifestContent = await rootBundle.loadString('AssetManifest.json');
-      // final Map<String, dynamic> manifestMap = json.decode(manifestContent);
-
       final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
       List<String> wordFiles;
 
@@ -95,8 +107,20 @@ class DatabaseHelper {
         return;
       }
 
-      final stmt = db.prepare(
-        'INSERT INTO words (text, length, category) VALUES (?, ?, ?)',
+      final insertWordStmt = db.prepare(
+        'INSERT OR IGNORE INTO words (text, length) VALUES (?, ?)',
+      );
+      final selectWordIdStmt = db.prepare(
+        'SELECT id FROM words WHERE text = ?',
+      );
+      final insertCategoryStmt = db.prepare(
+        'INSERT OR IGNORE INTO categories (tag, type) VALUES (?, ?)',
+      );
+      final selectCategoryIdStmt = db.prepare(
+        'SELECT id FROM categories WHERE tag = ?',
+      );
+      final insertWordCategoryStmt = db.prepare(
+        'INSERT OR IGNORE INTO word_categories (word_id, category_id) VALUES (?, ?)',
       );
 
       db.execute('BEGIN TRANSACTION');
@@ -105,41 +129,73 @@ class DatabaseHelper {
         try {
           final jsonString = await rootBundle.loadString(file);
           final dynamic jsonContent = json.decode(jsonString);
-          final List<dynamic> words = [];
-          if (jsonContent is List) {
-            words.addAll(jsonContent);
-          } else if (jsonContent is Map) {
-            for (final value in jsonContent.values) {
-              if (value is List) {
-                words.addAll(value);
-              } else {
-                words.add(value);
+          final List<String> words = [];
+
+          // Helper to extract strings
+          void addWords(dynamic content) {
+            if (content is List) {
+              for (var item in content) {
+                if (item is String) words.add(item);
+              }
+            } else if (content is Map) {
+              for (var value in content.values) {
+                addWords(value);
               }
             }
           }
-          // file is like "assets/words/grade-1.json"
-          String category = basenameWithoutExtension(file);
-          // basenameWithoutExtension needs package:path, which is already imported as join coming from there?
-          // Wait, 'package:path/path.dart' gives `join`. `basenameWithoutExtension` is also in there.
+
+          addWords(jsonContent);
+
+          // Category derivation from filename
+          // e.g., "assets/data/grade-1-math.json" -> tag: "grade-1-math", type: "Topic" (simplified)
+          String categoryTag = basenameWithoutExtension(file);
+          // Simple heuristic for category type, can be refined later
+          String categoryType = 'Topic';
+          if (categoryTag.startsWith('grade')) categoryType = 'Grade';
+
+          // Insert Category
+          insertCategoryStmt.execute([categoryTag, categoryType]);
+          final catIdResult = selectCategoryIdStmt.select([categoryTag]);
+          if (catIdResult.isEmpty) {
+            print('Error: Failed to retrieve ID for category: $categoryTag');
+            continue;
+          }
+          final categoryId = catIdResult.first['id'];
+          print('Processing category: $categoryTag (ID: $categoryId)');
 
           for (final word in words) {
-            if (word is String && word.isNotEmpty) {
-              stmt.execute([word, word.length, category]);
+            if (word.isNotEmpty) {
+              // Insert Word
+              insertWordStmt.execute([word, word.length]);
+
+              // Get Word ID
+              final wordIdResult = selectWordIdStmt.select([word]);
+              if (wordIdResult.isNotEmpty) {
+                final wordId = wordIdResult.first['id'];
+                // Link Word to Category
+                insertWordCategoryStmt.execute([wordId, categoryId]);
+              }
             }
           }
-          print('Loaded ${words.length} words from $category');
+          print('Loaded ${words.length} tags for "$categoryTag"');
         } catch (e) {
           print('Error loading $file: $e');
         }
       }
 
       db.execute('COMMIT');
-      stmt.close();
-      print('Database populated successfully.');
+      insertWordStmt.dispose();
+      selectWordIdStmt.dispose();
+      insertCategoryStmt.dispose();
+      selectCategoryIdStmt.dispose();
+      insertWordCategoryStmt.dispose();
+
+      print('Database populated successfully with Multi-Category support.');
     } catch (e) {
       print('Error populating database: $e');
-      // Ensure transaction is rolled back if meaningful, or just log.
-      // Since we manually controlled transaction, let's keep it simple for now.
+      try {
+        db.execute('ROLLBACK');
+      } catch (_) {}
     }
   }
 }

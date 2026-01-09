@@ -1,14 +1,16 @@
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class SettingsRepository {
+class SettingsRepository extends ChangeNotifier {
   final SharedPreferences _prefs;
 
   static const String _keySoundEnabled = 'sound_enabled';
   static const String _keyVipMode = 'vip_mode';
   static const String _keyLanguage = 'language_code';
   static const String _keyDefaultCategories = 'default_categories';
+  static const String _keyGameLevel = 'game_level';
   static const String _keyDefaultCategory =
       'default_category'; // Deprecated for single value
 
@@ -31,6 +33,8 @@ class SettingsRepository {
     }
   }
 
+  static const String _keyAllowSpecialChars = 'allow_special_chars';
+
   Future<void> syncSettings() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -41,6 +45,7 @@ class SettingsRepository {
         'sound_enabled': isSoundEnabled,
         'language_code': languageCode,
         'default_categories': defaultCategories,
+        'allow_special_chars': isSpecialCharsAllowed,
         'last_synced': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     } catch (e) {
@@ -51,24 +56,37 @@ class SettingsRepository {
   bool get isSoundEnabled => _prefs.getBool(_keySoundEnabled) ?? true;
   Future<void> setSoundEnabled(bool value) async {
     await _prefs.setBool(_keySoundEnabled, value);
+    notifyListeners();
     syncSettings();
   }
 
   bool get isVip => _prefs.getBool(_keyVipMode) ?? false;
   Future<void> setVip(bool value) async {
     await _prefs.setBool(_keyVipMode, value);
+    notifyListeners();
+    syncSettings();
+  }
+
+  bool get isSpecialCharsAllowed =>
+      _prefs.getBool(_keyAllowSpecialChars) ?? true;
+  Future<void> setSpecialCharsAllowed(bool value) async {
+    await _prefs.setBool(_keyAllowSpecialChars, value);
+    notifyListeners();
     syncSettings();
   }
 
   String get languageCode => _prefs.getString(_keyLanguage) ?? 'en';
   Future<void> setLanguageCode(String value) async {
     await _prefs.setString(_keyLanguage, value);
+    notifyListeners();
     syncSettings();
   }
 
   String? get defaultCategory => _prefs.getString(_keyDefaultCategory);
-  Future<void> setDefaultCategory(String value) async =>
-      _prefs.setString(_keyDefaultCategory, value);
+  Future<void> setDefaultCategory(String value) async {
+    await _prefs.setString(_keyDefaultCategory, value);
+    notifyListeners();
+  }
 
   List<String> get defaultCategories {
     // Check new list key first
@@ -84,6 +102,14 @@ class SettingsRepository {
 
   Future<void> setDefaultCategories(List<String> values) async {
     await _prefs.setStringList(_keyDefaultCategories, values);
+    notifyListeners();
+    syncSettings();
+  }
+
+  String get gameLevel => _prefs.getString(_keyGameLevel) ?? 'classic';
+  Future<void> setGameLevel(String value) async {
+    await _prefs.setString(_keyGameLevel, value);
+    notifyListeners();
     syncSettings();
   }
 }

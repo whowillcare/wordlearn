@@ -31,25 +31,38 @@ class GuessGrid extends StatelessWidget {
         }
 
         return Padding(
-          padding: const EdgeInsets.only(bottom: 6.0),
+          padding: const EdgeInsets.only(bottom: 12.0),
           child: _buildRow(
             word,
             targetWord.length,
             isSubmitted: index < guesses.length,
+            isCurrent: isCurrent,
           ),
         );
       }),
     );
   }
 
-  Widget _buildRow(String word, int length, {required bool isSubmitted}) {
-    List<Color> colors = List.filled(length, Colors.transparent);
-    Color borderColor = Colors.grey[400]!;
-    Color textColor = Colors.black;
+  Widget _buildRow(
+    String word,
+    int length, {
+    required bool isSubmitted,
+    required bool isCurrent,
+  }) {
+    List<Color> baseColors = List.filled(length, Colors.white.withOpacity(0.5));
+    List<Gradient?> gradients = List.filled(length, null);
+    Color textColor = Colors.deepPurple;
+    List<BoxShadow> shadows = [];
 
     if (isSubmitted && word.isNotEmpty) {
       textColor = Colors.white;
-      borderColor = Colors.transparent;
+      shadows = [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.2),
+          blurRadius: 4,
+          offset: const Offset(0, 2),
+        ),
+      ];
 
       // Strict Wordle Logic
       final targetChars = targetWord.split('');
@@ -63,21 +76,33 @@ class GuessGrid extends StatelessWidget {
       // Pass 1: Greens
       for (int i = 0; i < word.length; i++) {
         if (guessChars[i] == targetChars[i]) {
-          colors[i] = Colors.green;
+          gradients[i] = const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF66BB6A), Color(0xFF43A047)], // Green 400-600
+          );
           targetCounts[guessChars[i]] = targetCounts[guessChars[i]]! - 1;
         }
       }
 
       // Pass 2: Yellows/Greys
       for (int i = 0; i < word.length; i++) {
-        if (colors[i] == Colors.green) continue; // Already handled
+        if (gradients[i] != null) continue; // Already handled
 
         final letter = guessChars[i];
         if (targetCounts.containsKey(letter) && targetCounts[letter]! > 0) {
-          colors[i] = Colors.orange;
+          gradients[i] = const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFFFFA726), Color(0xFFFB8C00)], // Orange 400-600
+          );
           targetCounts[letter] = targetCounts[letter]! - 1;
         } else {
-          colors[i] = Colors.grey[700]!;
+          gradients[i] = LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.grey[400]!, Colors.grey[600]!],
+          );
         }
       }
     }
@@ -93,19 +118,16 @@ class GuessGrid extends StatelessWidget {
               char = word[index];
             }
 
-            Color cellColor = Colors.transparent;
-            if (isSubmitted && index < word.length) {
-              cellColor = colors[index];
-            }
-
             return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 3.0),
-              child: _buildLetterBox(
+              padding: const EdgeInsets.symmetric(horizontal: 6.0),
+              child: _buildBubble(
                 char,
                 isSubmitted,
-                cellColor,
-                borderColor,
+                gradients[index],
                 textColor,
+                isCurrent &&
+                    index == word.length, // Cursor effect could be added here
+                shadows,
               ),
             );
           }),
@@ -114,15 +136,46 @@ class GuessGrid extends StatelessWidget {
     );
   }
 
-  Widget _buildLetterBox(
+  Widget _buildBubble(
     String char,
     bool isSubmitted,
-    Color color,
-    Color borderColor,
+    Gradient? gradient,
     Color textColor,
+    bool isCursor,
+    List<BoxShadow> shadows,
   ) {
-    if (char.isNotEmpty && !isSubmitted) {
-      borderColor = Colors.black;
+    // Empty state for current row
+    if (!isSubmitted && gradient == null) {
+      if (char.isNotEmpty) {
+        // Filled but not submitted (Current Guess Letters)
+        gradient = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white,
+            Color(0xFFF3E5F5),
+          ], // White to very light purple
+        );
+        shadows = [
+          BoxShadow(
+            color: Colors.deepPurple.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ];
+      } else {
+        // Completely empty slot
+        // Glassmorphism feel: translucent white with border
+        return Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.white.withOpacity(0.3),
+            border: Border.all(color: Colors.white.withOpacity(0.6), width: 2),
+          ),
+        );
+      }
     }
 
     return Container(
@@ -130,9 +183,9 @@ class GuessGrid extends StatelessWidget {
       height: 50,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: color,
-        border: Border.all(color: borderColor, width: 2),
-        borderRadius: BorderRadius.circular(4),
+        shape: BoxShape.circle,
+        gradient: gradient,
+        boxShadow: shadows,
       ),
       child: Text(
         char.toUpperCase(),
@@ -140,6 +193,15 @@ class GuessGrid extends StatelessWidget {
           fontSize: 24,
           fontWeight: FontWeight.bold,
           color: textColor,
+          shadows: isSubmitted
+              ? [
+                  const Shadow(
+                    blurRadius: 2,
+                    color: Colors.black26,
+                    offset: Offset(0, 1),
+                  ),
+                ]
+              : null,
         ),
       ),
     );

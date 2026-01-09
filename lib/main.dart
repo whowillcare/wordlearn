@@ -13,12 +13,22 @@ import 'data/settings_repository.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart'; // for kIsWeb if needed, or just default
 
+import 'package:provider/provider.dart';
+
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
     await Firebase.initializeApp();
   } catch (e) {
     print("Firebase init failed: $e");
+  }
+
+  try {
+    await MobileAds.instance.initialize();
+  } catch (e) {
+    print("AdMob init failed: $e");
   }
 
   final wordRepo = WordRepository();
@@ -52,11 +62,12 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiRepositoryProvider(
+    return MultiProvider(
       providers: [
         RepositoryProvider.value(value: repository),
         RepositoryProvider.value(value: statsRepository),
-        RepositoryProvider.value(value: settingsRepository),
+        // Use ChangeNotifierProvider for SettingsRepository to enable context.watch()
+        ChangeNotifierProvider.value(value: settingsRepository),
       ],
       child: MaterialApp(
         title: 'WordLearn',
@@ -68,6 +79,13 @@ class MyApp extends StatelessWidget {
         ],
         supportedLocales: const [
           Locale('en'), // English
+          Locale('zh'), // Chinese (Simplified)
+          Locale.fromSubtags(
+            languageCode: 'zh',
+            scriptCode: 'Hant',
+          ), // Chinese (Traditional)
+          Locale('fr'), // French
+          Locale('es'), // Spanish
         ],
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
