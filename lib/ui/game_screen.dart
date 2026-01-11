@@ -11,7 +11,9 @@ import '../data/word_repository.dart';
 import 'components/guess_grid.dart';
 import 'components/keyboard.dart';
 import 'components/interstitial_ad_controller.dart';
+import 'components/banner_ad_widget.dart';
 import 'components/word_detail_dialog.dart';
+import 'components/rewarded_ad_controller.dart';
 import '../l10n/app_localizations.dart';
 import '../utils/category_utils.dart';
 
@@ -34,6 +36,7 @@ class GameScreen extends StatefulWidget {
 class _GameScreenState extends State<GameScreen> {
   late ConfettiController _confettiController;
   late InterstitialAdController _adController;
+  late RewardedAdController _rewardedAdController;
 
   @override
   void initState() {
@@ -43,6 +46,8 @@ class _GameScreenState extends State<GameScreen> {
     );
     _adController = InterstitialAdController();
     _adController.loadAd();
+    _rewardedAdController = RewardedAdController();
+    _rewardedAdController.loadAd();
     // If NOT resuming, start a new game
     if (!widget.isResuming) {
       context.read<GameBloc>().add(
@@ -55,6 +60,7 @@ class _GameScreenState extends State<GameScreen> {
   void dispose() {
     _confettiController.dispose();
     _adController.dispose();
+    _rewardedAdController.dispose();
     super.dispose();
   }
 
@@ -136,9 +142,8 @@ class _GameScreenState extends State<GameScreen> {
             _showVictoryDialog(context, state);
           } else if (state.status == GameStatus.lost) {
             _adController.showAd();
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(AppLocalizations.of(context)!.gameOver)),
-            );
+            // Show Defeat/Revive Dialog
+            _showDefeatDialog(context, state);
           }
         },
         builder: (context, state) {
@@ -146,153 +151,167 @@ class _GameScreenState extends State<GameScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          return LayoutBuilder(
-            builder: (context, constraints) {
-              final isLandscape = constraints.maxWidth > constraints.maxHeight;
-              final settings = context.read<SettingsRepository>();
+          return Column(
+            children: [
+              const BannerAdWidget(),
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isLandscape =
+                        constraints.maxWidth > constraints.maxHeight;
+                    final settings = context.read<SettingsRepository>();
 
-              // Content Wrappers
-              final gridSection = Center(
-                child: SingleChildScrollView(
-                  child: GuessGrid(
-                    guesses: state.guesses,
-                    currentGuess: state.currentGuess,
-                    targetWord: state.targetWord,
-                    maxAttempts: state.level?.attempts ?? 6,
-                  ),
-                ),
-              );
-
-              final controlsSection = Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Power-up Row
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0,
-                      vertical: 8.0,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _buildHintButton(context, state),
-                        const SizedBox(width: 16),
-                        _buildPowerUpButton(
-                          context,
-                          icon: Icons.shuffle,
-                          label: AppLocalizations.of(context)!.shuffle,
-                          onTap: null, // Placeholder
+                    // Content Wrappers
+                    final gridSection = Center(
+                      child: SingleChildScrollView(
+                        child: GuessGrid(
+                          guesses: state.guesses,
+                          currentGuess: state.currentGuess,
+                          targetWord: state.targetWord,
+                          maxAttempts: state.level?.attempts ?? 6,
                         ),
-                      ],
-                    ),
-                  ),
-
-                  if (state.status == GameStatus.won)
-                    _buildPostGameControls(context, state)
-                  else
-                    Keyboard(
-                      letterStatus: state.letterStatus,
-                      allowSpecialChars: settings.isSpecialCharsAllowed,
-                      onKeyTap: (letter) {
-                        context.read<GameBloc>().add(GuessEntered(letter));
-                      },
-                      onDeleteTap: () {
-                        context.read<GameBloc>().add(GuessDeleted());
-                      },
-                      onEnterTap: () {
-                        context.read<GameBloc>().add(GuessSubmitted());
-                      },
-                    ),
-                  if (state.isCategoryRevealed)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: FutureBuilder<String>(
-                        future: context.read<WordRepository>().getWordCategory(
-                          state.targetWord,
-                        ),
-                        builder: (context, snapshot) {
-                          if (!snapshot.hasData) return const SizedBox.shrink();
-                          return Text(
-                            "Category: ${CategoryUtils.formatName(snapshot.data!)}",
-                            style: const TextStyle(
-                              color: Colors.deepPurple,
-                              fontStyle: FontStyle.italic,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          );
-                        },
                       ),
-                    ),
-                  const SizedBox(height: 10),
-                ],
-              );
+                    );
 
-              return Stack(
-                children: [
-                  if (isLandscape)
-                    Row(
+                    final controlsSection = Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Expanded(flex: 1, child: gridSection),
-                        Expanded(flex: 1, child: controlsSection),
-                      ],
-                    )
-                  else
-                    Column(
-                      children: [
-                        Expanded(child: gridSection),
-                        controlsSection,
-                      ],
-                    ),
-
-                  // Confetti
-                  Align(
-                    alignment: Alignment.topCenter,
-                    child: ConfettiWidget(
-                      confettiController: _confettiController,
-                      blastDirectionality: BlastDirectionality.explosive,
-                      shouldLoop: false,
-                      colors: const [
-                        Colors.green,
-                        Colors.blue,
-                        Colors.pink,
-                        Colors.orange,
-                        Colors.purple,
-                      ],
-                    ),
-                  ),
-
-                  // Error Messages
-                  if (state.errorMessage != null)
-                    Positioned(
-                      top: 20,
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: Container(
+                        // Power-up Row
+                        Padding(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
+                            horizontal: 16.0,
+                            vertical: 8.0,
                           ),
-                          decoration: BoxDecoration(
-                            color: Colors.redAccent,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: const [
-                              BoxShadow(color: Colors.black26, blurRadius: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _buildHintButton(context, state),
+                              const SizedBox(width: 16),
+                              _buildPowerUpButton(
+                                context,
+                                icon: Icons.shuffle,
+                                label: AppLocalizations.of(context)!.shuffle,
+                                onTap: null, // Placeholder
+                              ),
                             ],
                           ),
-                          child: Text(
-                            state.errorMessage!,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
+                        ),
+
+                        if (state.status == GameStatus.won)
+                          _buildPostGameControls(context, state)
+                        else
+                          Keyboard(
+                            letterStatus: state.letterStatus,
+                            allowSpecialChars: settings.isSpecialCharsAllowed,
+                            onKeyTap: (letter) {
+                              context.read<GameBloc>().add(
+                                GuessEntered(letter),
+                              );
+                            },
+                            onDeleteTap: () {
+                              context.read<GameBloc>().add(GuessDeleted());
+                            },
+                            onEnterTap: () {
+                              context.read<GameBloc>().add(GuessSubmitted());
+                            },
+                          ),
+                        if (state.isCategoryRevealed)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8.0),
+                            child: FutureBuilder<String>(
+                              future: context
+                                  .read<WordRepository>()
+                                  .getWordCategory(state.targetWord),
+                              builder: (context, snapshot) {
+                                if (!snapshot.hasData)
+                                  return const SizedBox.shrink();
+                                return Text(
+                                  "Category: ${CategoryUtils.formatName(snapshot.data!)}",
+                                  style: const TextStyle(
+                                    color: Colors.deepPurple,
+                                    fontStyle: FontStyle.italic,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                );
+                              },
                             ),
                           ),
+                        const SizedBox(height: 10),
+                      ],
+                    );
+
+                    return Stack(
+                      children: [
+                        if (isLandscape)
+                          Row(
+                            children: [
+                              Expanded(flex: 1, child: gridSection),
+                              Expanded(flex: 1, child: controlsSection),
+                            ],
+                          )
+                        else
+                          Column(
+                            children: [
+                              Expanded(child: gridSection),
+                              controlsSection,
+                            ],
+                          ),
+
+                        // Confetti
+                        Align(
+                          alignment: Alignment.topCenter,
+                          child: ConfettiWidget(
+                            confettiController: _confettiController,
+                            blastDirectionality: BlastDirectionality.explosive,
+                            shouldLoop: false,
+                            colors: const [
+                              Colors.green,
+                              Colors.blue,
+                              Colors.pink,
+                              Colors.orange,
+                              Colors.purple,
+                            ],
+                          ),
                         ),
-                      ),
-                    ),
-                ],
-              );
-            },
+
+                        // Error Messages
+                        if (state.errorMessage != null)
+                          Positioned(
+                            top: 20,
+                            left: 0,
+                            right: 0,
+                            child: Center(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.redAccent,
+                                  borderRadius: BorderRadius.circular(20),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Colors.black26,
+                                      blurRadius: 8,
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  state.errorMessage!,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ],
           );
         },
       ),
@@ -332,6 +351,85 @@ class _GameScreenState extends State<GameScreen> {
       onTap: state.status == GameStatus.playing
           ? () => context.read<GameBloc>().add(HintRequested())
           : null,
+    );
+  }
+
+  void _showDefeatDialog(BuildContext context, GameState state) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          'Game Over',
+          style: TextStyle(color: Colors.redAccent),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('You ran out of guesses!'),
+            const SizedBox(height: 20),
+            if (!state
+                .isCategoryRevealed) // Logic check: hide word if possible? No, user lost.
+              // Actually, we usually show the word on loss.
+              // But if we want them to Review, maybe we hide it?
+              // "Revive (+3 Guesses) - 20 pts" implies they continue attempting.
+              // So we DON'T reveal the word yet if they might revive.
+              // But the listener triggers on 'lost'.
+              // If they give up, we reveal it? Or just show it now?
+              // If we show it, reviving is pointless for guessing.
+              // So: Dialog must NOT show word yet.
+              const Text(
+                'Revive for 20 Points?',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+            const Text('+3 Extra Guesses'),
+            const SizedBox(height: 10),
+            TextButton.icon(
+              onPressed: () {
+                _rewardedAdController.showAd(
+                  onUserEarnedReward: (amount) {
+                    context.read<GameBloc>().add(PointsEarned(amount));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('You earned $amount points!')),
+                    );
+                    // Optionally auto-revive if they have enough now?
+                    // Or just stay in dialog.
+                  },
+                );
+              },
+              icon: const Icon(Icons.video_library, color: Colors.green),
+              label: const Text('Watch Ad (+50 Pts)'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Now show the word in a snackbar as "official" give up
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Game Over! Word was: ${state.targetWord.toUpperCase()}',
+                  ),
+                ),
+              );
+            },
+            child: const Text('Give Up', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              context.read<GameBloc>().add(GameRevived());
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Revive (20 pts)'),
+          ),
+        ],
+      ),
     );
   }
 

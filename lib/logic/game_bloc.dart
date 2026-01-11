@@ -29,6 +29,7 @@ class GameBloc extends HydratedBloc<GameEvent, GameState> {
     on<AddToLibraryRequested>(_onAddToLibraryRequested);
     on<HintRequested>(_onHintRequested);
     on<GameRevived>(_onGameRevived);
+    on<PointsEarned>(_onPointsEarned);
   }
 
   @override
@@ -431,14 +432,50 @@ class GameBloc extends HydratedBloc<GameEvent, GameState> {
     }
   }
 
-  void _onGameRevived(GameRevived event, Emitter<GameState> emit) {
+  Future<void> _onGameRevived(
+    GameRevived event,
+    Emitter<GameState> emit,
+  ) async {
     if (state.status != GameStatus.lost) return;
+
+    final cost = 20;
+    final hasPoints = await _statsRepository.deductPoints(cost);
+
+    if (!hasPoints) {
+      if (_settingsRepository.isSoundEnabled) {
+        try {
+          await _audioPlayer.play(AssetSource('sounds/error.wav'));
+        } catch (_) {}
+      }
+      emit(state.copyWith(errorMessage: 'Not enough points to revive!'));
+      return;
+    }
+
     emit(
       state.copyWith(
         status: GameStatus.playing,
         bonusAttempts: state.bonusAttempts + 3,
+        errorMessage: null, // Clear error
         clearError: true,
       ),
     );
+
+    if (_settingsRepository.isSoundEnabled) {
+      try {
+        await _audioPlayer.play(AssetSource('sounds/success.wav'));
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _onPointsEarned(
+    PointsEarned event,
+    Emitter<GameState> emit,
+  ) async {
+    await _statsRepository.addPoints(event.amount);
+    if (_settingsRepository.isSoundEnabled) {
+      try {
+        await _audioPlayer.play(AssetSource('sounds/success.wav'));
+      } catch (_) {}
+    }
   }
 }

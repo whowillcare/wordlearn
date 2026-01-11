@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../data/word_repository.dart';
 import '../../l10n/app_localizations.dart';
+import 'banner_ad_widget.dart';
 
 class WordDetailDialog extends StatefulWidget {
   final String word;
@@ -90,9 +91,11 @@ class _WordDetailDialogState extends State<WordDetailDialog> {
             ),
           if (_isLearnt == true && !_isLoading)
             const Padding(
-              padding: EdgeInsets.only(top: 8.0),
+              padding: EdgeInsets.only(top: 8.0, bottom: 8.0),
               child: Text("Saved!", style: TextStyle(color: Colors.green)),
             ),
+          const SizedBox(height: 10),
+          const BannerAdWidget(),
         ],
       ),
       actions: [

@@ -45,3 +45,11 @@ class AddToLibraryRequested extends GameEvent {}
 class GameRevived extends GameEvent {}
 
 class HintRequested extends GameEvent {}
+
+class PointsEarned extends GameEvent {
+  final int amount;
+  const PointsEarned(this.amount);
+
+  @override
+  List<Object?> get props => [amount];
+}

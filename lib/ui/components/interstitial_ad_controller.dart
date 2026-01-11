@@ -38,13 +38,25 @@ class InterstitialAdController {
     );
   }
 
+  static int _attempts = 0;
+
   void showAd() {
     if (_isAdLoaded && _interstitialAd != null) {
-      _interstitialAd!.show();
-      _interstitialAd = null; // Prepare for clean state
-      _isAdLoaded = false;
+      _attempts++;
+      // Show ad every 3rd attempt
+      if (_attempts % 3 == 0) {
+        _interstitialAd!.show();
+        _interstitialAd = null;
+        _isAdLoaded = false;
+        // Preload next
+        loadAd();
+      } else {
+        print('Interstitial ad skipped (Capping: $_attempts)');
+        // Check if we need to reload? No, keep it for next time.
+      }
     } else {
       print('Interstitial ad is not yet loaded.');
+      loadAd(); // Try ensuring it loads for next time
     }
   }
 

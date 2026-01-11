@@ -9,7 +9,6 @@ import '../data/settings_repository.dart';
 import 'game_screen.dart';
 import 'settings_screen.dart';
 import 'library_screen.dart';
-import 'components/banner_ad_widget.dart';
 import '../l10n/app_localizations.dart';
 import '../utils/category_utils.dart';
 
@@ -85,11 +84,6 @@ class _HomeScreenState extends State<HomeScreen>
                     duration: const Duration(milliseconds: 300),
                     child: pages[_selectedIndex],
                   ),
-                ),
-                // Banner Ad
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 8.0),
-                  child: BannerAdWidget(),
                 ),
                 // Add padding for bottom nav
                 const SizedBox(height: 80),
