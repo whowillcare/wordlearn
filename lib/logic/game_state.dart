@@ -19,6 +19,9 @@ class GameState extends Equatable {
   final String currentGuess;
   final Map<String, LetterStatus> letterStatus;
   final bool isWordSaved;
+  final int hintLevel;
+  final bool isCategoryRevealed;
+  final int bonusAttempts;
 
   const GameState({
     this.status = GameStatus.initial,
@@ -33,6 +36,9 @@ class GameState extends Equatable {
     this.letterStatus = const {},
     this.categoryWordCount,
     this.isWordSaved = false,
+    this.hintLevel = 0,
+    this.isCategoryRevealed = false,
+    this.bonusAttempts = 0,
   });
 
   final int? categoryWordCount;
@@ -51,6 +57,9 @@ class GameState extends Equatable {
     bool clearError = false,
     int? categoryWordCount,
     bool? isWordSaved,
+    int? hintLevel,
+    bool? isCategoryRevealed,
+    int? bonusAttempts,
   }) {
     return GameState(
       status: status ?? this.status,
@@ -64,7 +73,11 @@ class GameState extends Equatable {
       currentGuess: currentGuess ?? this.currentGuess,
       letterStatus: letterStatus ?? this.letterStatus,
       categoryWordCount: categoryWordCount ?? this.categoryWordCount,
+
       isWordSaved: isWordSaved ?? this.isWordSaved,
+      hintLevel: hintLevel ?? this.hintLevel,
+      isCategoryRevealed: isCategoryRevealed ?? this.isCategoryRevealed,
+      bonusAttempts: bonusAttempts ?? this.bonusAttempts,
     );
   }
 
@@ -80,5 +93,9 @@ class GameState extends Equatable {
     currentGuess,
     letterStatus,
     categoryWordCount,
+    hintLevel,
+    isCategoryRevealed,
+    bonusAttempts,
+    isWordSaved,
   ];
 }

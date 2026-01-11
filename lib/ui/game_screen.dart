@@ -7,15 +7,25 @@ import '../data/game_levels.dart';
 import '../logic/game_bloc.dart';
 import '../logic/game_state.dart';
 import '../data/settings_repository.dart';
+import '../data/word_repository.dart';
 import 'components/guess_grid.dart';
 import 'components/keyboard.dart';
+import 'components/interstitial_ad_controller.dart';
+import 'components/word_detail_dialog.dart';
 import '../l10n/app_localizations.dart';
+import '../utils/category_utils.dart';
 
 class GameScreen extends StatefulWidget {
   final List<String> categories;
   final GameLevel level;
+  final bool isResuming;
 
-  const GameScreen({super.key, required this.categories, required this.level});
+  const GameScreen({
+    super.key,
+    required this.categories,
+    required this.level,
+    this.isResuming = false,
+  });
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -23,6 +33,7 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> {
   late ConfettiController _confettiController;
+  late InterstitialAdController _adController;
 
   @override
   void initState() {
@@ -30,165 +41,155 @@ class _GameScreenState extends State<GameScreen> {
     _confettiController = ConfettiController(
       duration: const Duration(seconds: 3),
     );
+    _adController = InterstitialAdController();
+    _adController.loadAd();
+    // If NOT resuming, start a new game
+    if (!widget.isResuming) {
+      context.read<GameBloc>().add(
+        GameStarted(level: widget.level, categories: widget.categories),
+      );
+    }
   }
 
   @override
   void dispose() {
     _confettiController.dispose();
+    _adController.dispose();
     super.dispose();
   }
 
   String _getCategoryTitle(BuildContext context) {
-    // localized later if categories become keys, currently dynamic strings
     if (widget.categories.length == 1) {
-      if (widget.categories.first == 'all') return 'Everything';
-      return widget
-          .categories
-          .first; // Capitalize first letter logic can be added here
+      return CategoryUtils.formatName(widget.categories.first);
     }
     return '${widget.categories.length} Categories';
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => GameBloc(
-        RepositoryProvider.of<WordRepository>(context),
-        RepositoryProvider.of<StatisticsRepository>(context),
-        RepositoryProvider.of<SettingsRepository>(context),
-      )..add(GameStarted(level: widget.level, categories: widget.categories)),
-      child: Scaffold(
-        // "Low Key" Theme Background
-        backgroundColor: const Color(0xFFE6E1F4), // Matte Light Purple
-        appBar: AppBar(
-          backgroundColor: const Color(0xFFE6E1F4),
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(
-              Icons.arrow_back_ios_new,
-              color: Colors.deepPurple,
+    return Scaffold(
+      // "Low Key" Theme Background
+      backgroundColor: const Color(0xFFE6E1F4), // Matte Light Purple
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFE6E1F4),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.deepPurple),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        centerTitle: true,
+        title: Column(
+          children: [
+            Text(
+              _getCategoryTitle(context).toUpperCase(),
+              style: const TextStyle(
+                color: Colors.deepPurple,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                letterSpacing: 1.2,
+              ),
             ),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-          centerTitle: true,
-          title: Column(
-            children: [
-              Text(
-                _getCategoryTitle(context).toUpperCase(),
-                style: const TextStyle(
-                  color: Colors.deepPurple,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  letterSpacing: 1.2,
-                ),
-              ),
-              Text(
-                widget.level.key.toUpperCase(),
-                style: const TextStyle(
-                  color: Colors.deepPurpleAccent,
-                  fontSize: 10,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            // Score Display
-            Padding(
-              padding: const EdgeInsets.only(right: 16.0),
-              child: BlocBuilder<GameBloc, GameState>(
-                builder: (context, state) {
-                  // Placeholder for score if exist in state, else standard level info
-                  return Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      "${state.categoryWordCount ?? '?'} Words",
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.deepPurple,
-                      ),
-                    ),
-                  );
-                },
+            Text(
+              widget.level.key.toUpperCase(),
+              style: const TextStyle(
+                color: Colors.deepPurpleAccent,
+                fontSize: 10,
               ),
             ),
           ],
         ),
-        body: BlocConsumer<GameBloc, GameState>(
-          listener: (context, state) {
-            if (state.status == GameStatus.won) {
-              _confettiController.play();
-              _showVictoryDialog(context, state);
-            } else if (state.status == GameStatus.lost) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(AppLocalizations.of(context)!.gameOver)),
-              );
-            }
-          },
-          builder: (context, state) {
-            if (state.status == GameStatus.initial) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            return LayoutBuilder(
-              builder: (context, constraints) {
-                final isLandscape =
-                    constraints.maxWidth > constraints.maxHeight;
-                final settings = context.read<SettingsRepository>();
-
-                // Content Wrappers
-                final gridSection = Center(
-                  child: SingleChildScrollView(
-                    child: GuessGrid(
-                      guesses: state.guesses,
-                      currentGuess: state.currentGuess,
-                      targetWord: state.targetWord,
-                      maxAttempts: state.level?.attempts ?? 6,
+        actions: [
+          // Score Display
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: BlocBuilder<GameBloc, GameState>(
+              builder: (context, state) {
+                // Placeholder for score if exist in state, else standard level info
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    "${state.categoryWordCount ?? '?'} Words",
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.deepPurple,
                     ),
                   ),
                 );
+              },
+            ),
+          ),
+        ],
+      ),
+      body: BlocConsumer<GameBloc, GameState>(
+        listener: (context, state) {
+          if (state.status == GameStatus.won) {
+            _adController.showAd();
+            _confettiController.play();
+            _showVictoryDialog(context, state);
+          } else if (state.status == GameStatus.lost) {
+            _adController.showAd();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(AppLocalizations.of(context)!.gameOver)),
+            );
+          }
+        },
+        builder: (context, state) {
+          if (state.status == GameStatus.initial) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-                final controlsSection = Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Power-up Row
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16.0,
-                        vertical: 8.0,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _buildPowerUpButton(
-                            context,
-                            icon: Icons.lightbulb,
-                            label: AppLocalizations.of(context)!.hint,
-                            onTap: state.status == GameStatus.playing
-                                ? () => context.read<GameBloc>().add(
-                                    HintRequested(),
-                                  )
-                                : null,
-                          ),
-                          const SizedBox(width: 16),
-                          _buildPowerUpButton(
-                            context,
-                            icon: Icons.shuffle,
-                            label: AppLocalizations.of(context)!.shuffle,
-                            // No op for now, just visual placeholder or future feature
-                            onTap: null,
-                          ),
-                        ],
-                      ),
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final isLandscape = constraints.maxWidth > constraints.maxHeight;
+              final settings = context.read<SettingsRepository>();
+
+              // Content Wrappers
+              final gridSection = Center(
+                child: SingleChildScrollView(
+                  child: GuessGrid(
+                    guesses: state.guesses,
+                    currentGuess: state.currentGuess,
+                    targetWord: state.targetWord,
+                    maxAttempts: state.level?.attempts ?? 6,
+                  ),
+                ),
+              );
+
+              final controlsSection = Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Power-up Row
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16.0,
+                      vertical: 8.0,
                     ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildHintButton(context, state),
+                        const SizedBox(width: 16),
+                        _buildPowerUpButton(
+                          context,
+                          icon: Icons.shuffle,
+                          label: AppLocalizations.of(context)!.shuffle,
+                          onTap: null, // Placeholder
+                        ),
+                      ],
+                    ),
+                  ),
 
+                  if (state.status == GameStatus.won)
+                    _buildPostGameControls(context, state)
+                  else
                     Keyboard(
                       letterStatus: state.letterStatus,
                       allowSpecialChars: settings.isSpecialCharsAllowed,
@@ -202,79 +203,98 @@ class _GameScreenState extends State<GameScreen> {
                         context.read<GameBloc>().add(GuessSubmitted());
                       },
                     ),
-                    const SizedBox(height: 20),
-                  ],
-                );
-
-                return Stack(
-                  children: [
-                    if (isLandscape)
-                      Row(
-                        children: [
-                          Expanded(flex: 1, child: gridSection),
-                          Expanded(flex: 1, child: controlsSection),
-                        ],
-                      )
-                    else
-                      Column(
-                        children: [
-                          Expanded(child: gridSection),
-                          controlsSection,
-                        ],
-                      ),
-
-                    // Confetti
-                    Align(
-                      alignment: Alignment.topCenter,
-                      child: ConfettiWidget(
-                        confettiController: _confettiController,
-                        blastDirectionality: BlastDirectionality.explosive,
-                        shouldLoop: false,
-                        colors: const [
-                          Colors.green,
-                          Colors.blue,
-                          Colors.pink,
-                          Colors.orange,
-                          Colors.purple,
-                        ],
+                  if (state.isCategoryRevealed)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: FutureBuilder<String>(
+                        future: context.read<WordRepository>().getWordCategory(
+                          state.targetWord,
+                        ),
+                        builder: (context, snapshot) {
+                          if (!snapshot.hasData) return const SizedBox.shrink();
+                          return Text(
+                            "Category: ${CategoryUtils.formatName(snapshot.data!)}",
+                            style: const TextStyle(
+                              color: Colors.deepPurple,
+                              fontStyle: FontStyle.italic,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          );
+                        },
                       ),
                     ),
+                  const SizedBox(height: 10),
+                ],
+              );
 
-                    // Error Messages
-                    if (state.errorMessage != null)
-                      Positioned(
-                        top: 20,
-                        left: 0,
-                        right: 0,
-                        child: Center(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.redAccent,
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: const [
-                                BoxShadow(color: Colors.black26, blurRadius: 8),
-                              ],
-                            ),
-                            child: Text(
-                              state.errorMessage!,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
+              return Stack(
+                children: [
+                  if (isLandscape)
+                    Row(
+                      children: [
+                        Expanded(flex: 1, child: gridSection),
+                        Expanded(flex: 1, child: controlsSection),
+                      ],
+                    )
+                  else
+                    Column(
+                      children: [
+                        Expanded(child: gridSection),
+                        controlsSection,
+                      ],
+                    ),
+
+                  // Confetti
+                  Align(
+                    alignment: Alignment.topCenter,
+                    child: ConfettiWidget(
+                      confettiController: _confettiController,
+                      blastDirectionality: BlastDirectionality.explosive,
+                      shouldLoop: false,
+                      colors: const [
+                        Colors.green,
+                        Colors.blue,
+                        Colors.pink,
+                        Colors.orange,
+                        Colors.purple,
+                      ],
+                    ),
+                  ),
+
+                  // Error Messages
+                  if (state.errorMessage != null)
+                    Positioned(
+                      top: 20,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.redAccent,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: const [
+                              BoxShadow(color: Colors.black26, blurRadius: 8),
+                            ],
+                          ),
+                          child: Text(
+                            state.errorMessage!,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
                       ),
-                  ],
-                );
-              },
-            );
-          },
-        ),
+                    ),
+                ],
+              );
+            },
+          );
+        },
       ),
     );
   }
@@ -301,6 +321,17 @@ class _GameScreenState extends State<GameScreen> {
         icon: Icon(icon, size: 20, color: Colors.orangeAccent),
         label: Text(label),
       ),
+    );
+  }
+
+  Widget _buildHintButton(BuildContext context, GameState state) {
+    return _buildPowerUpButton(
+      context,
+      icon: Icons.lightbulb,
+      label: AppLocalizations.of(context)!.hint,
+      onTap: state.status == GameStatus.playing
+          ? () => context.read<GameBloc>().add(HintRequested())
+          : null,
     );
   }
 
@@ -364,6 +395,43 @@ class _GameScreenState extends State<GameScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildPostGameControls(BuildContext context, GameState state) {
+    // We use a FutureBuilder or just a direct logic to open the dialog
+    // Actually, let's keep it simple: A button that says "Library Actions" or just uses the dialog logic.
+    // Or better: The button itself is the toggle, but to be consistent with request "click word to add/remove",
+    // we can also just make this button open the dialog for the target word.
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Center(
+        child: ElevatedButton.icon(
+          onPressed: () {
+            showDialog(
+              context: context,
+              builder: (context) => WordDetailDialog(word: state.targetWord),
+            ).then((value) {
+              // Update Bloc state if needed, but dialog handles repo directly.
+              // We might want to trigger a refresh event if we want strict consistency,
+              // but for now visual consistency in dialog is enough.
+              // Actually, if we add it, 'isWordSaved' in Bloc might be stale.
+              // Let's rely on the Dialog for truth.
+              if (value == true) {
+                context.read<GameBloc>().add(AddToLibraryRequested());
+              }
+            });
+          },
+          icon: const Icon(Icons.bookmark_border),
+          label: const Text('Manage in Library'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.deepPurple,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+          ),
+        ),
+      ),
     );
   }
 }

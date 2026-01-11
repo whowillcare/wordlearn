@@ -82,12 +82,17 @@ class WordRepository {
   Future<int> getWordsCount(
     List<String> categories,
     int minLength,
-    int maxLength,
-  ) async {
+    int maxLength, {
+    bool allowSpecialChars = true,
+  }) async {
     final db = await _dbHelper.database;
+    final String specialCharFilter = allowSpecialChars
+        ? ''
+        : " AND w.text NOT LIKE '%-%' AND w.text NOT LIKE '% %' AND w.text NOT LIKE '%''%'";
+
     if (categories.contains('all') || categories.isEmpty) {
       final result = db.select(
-        'SELECT COUNT(*) as count FROM words WHERE length >= ? AND length <= ?',
+        'SELECT COUNT(*) as count FROM words w WHERE length >= ? AND length <= ?$specialCharFilter',
         [minLength, maxLength],
       );
       return result.first['count'] as int;
@@ -100,7 +105,7 @@ class WordRepository {
       FROM words w
       JOIN word_categories wc ON w.id = wc.word_id
       JOIN categories c ON wc.category_id = c.id
-      WHERE c.tag IN ($placeholders) AND w.length >= ? AND w.length <= ?
+      WHERE c.tag IN ($placeholders) AND w.length >= ? AND w.length <= ?$specialCharFilter
       ''',
       [...categories, minLength, maxLength],
     );
@@ -110,12 +115,17 @@ class WordRepository {
   Future<List<String>> getWords(
     List<String> categories,
     int minLength,
-    int maxLength,
-  ) async {
+    int maxLength, {
+    bool allowSpecialChars = true,
+  }) async {
     final db = await _dbHelper.database;
+    final String specialCharFilter = allowSpecialChars
+        ? ''
+        : " AND w.text NOT LIKE '%-%' AND w.text NOT LIKE '% %' AND w.text NOT LIKE '%''%'";
+
     if (categories.contains('all') || categories.isEmpty) {
       final stmt = db.prepare(
-        'SELECT text FROM words WHERE length >= ? AND length <= ?',
+        'SELECT text FROM words w WHERE length >= ? AND length <= ?$specialCharFilter',
       );
       final ResultSet results = stmt.select([minLength, maxLength]);
       stmt.close();
@@ -128,7 +138,7 @@ class WordRepository {
       FROM words w
       JOIN word_categories wc ON w.id = wc.word_id
       JOIN categories c ON wc.category_id = c.id
-      WHERE c.tag IN ($placeholders) AND w.length >= ? AND w.length <= ?
+      WHERE c.tag IN ($placeholders) AND w.length >= ? AND w.length <= ?$specialCharFilter
       ''');
     final ResultSet results = stmt.select([
       ...categories,

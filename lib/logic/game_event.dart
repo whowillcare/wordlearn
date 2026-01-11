@@ -42,4 +42,6 @@ class GuessDeleted extends GameEvent {
 
 class AddToLibraryRequested extends GameEvent {}
 
+class GameRevived extends GameEvent {}
+
 class HintRequested extends GameEvent {}

@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../data/word_repository.dart';
 import '../data/game_levels.dart';
+import '../logic/game_bloc.dart';
+import '../logic/game_state.dart'; // Ensure state enum is visible
 import '../data/ingestion_result.dart';
 import '../data/settings_repository.dart';
 import 'game_screen.dart';
 import 'settings_screen.dart';
 import 'library_screen.dart';
+import 'components/banner_ad_widget.dart';
 import '../l10n/app_localizations.dart';
+import '../utils/category_utils.dart';
 
 import 'dart:math' as math;
 import 'dart:ui';
@@ -81,6 +85,11 @@ class _HomeScreenState extends State<HomeScreen>
                     duration: const Duration(milliseconds: 300),
                     child: pages[_selectedIndex],
                   ),
+                ),
+                // Banner Ad
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 8.0),
+                  child: BannerAdWidget(),
                 ),
                 // Add padding for bottom nav
                 const SizedBox(height: 80),
@@ -257,51 +266,9 @@ class _HomeContent extends StatefulWidget {
 }
 
 class _HomeContentState extends State<_HomeContent> {
-  String _formatCategory(String tag) {
-    if (tag == 'all') return 'All Categories';
-    // Friendly name mapping
-    final Map<String, String> displayNames = {
-      'freq': 'Most Frequent',
-      'grade-1': 'Grade 1',
-      'grade-2': 'Grade 2',
-      'grade-3': 'Grade 3',
-      'grade-4': 'Grade 4',
-      'grade-5': 'Grade 5',
-      'grade-6': 'Grade 6',
-      'grade-7': 'Grade 7',
-      'grade-8': 'Grade 8',
-      'grade-9': 'Grade 9',
-      'grade-10': 'Grade 10',
-      'grade-11': 'Grade 11',
-      'grade-12': 'Grade 12',
-      'svl': 'Sec. School Voc.',
-      'msvl': 'Mid. School Voc.',
-      'tof': 'TOEFL',
-      'sat': 'S.A.T.',
-      'gre': 'GRE',
-      'ielts': 'IELTS',
-      'svl - math': 'Sec. School Math',
-      'svl - biology': 'Sec. School Biology',
-      'svl - chemistry': 'Sec. School Chemistry',
-      'svl - ecnomics': 'Sec. School Economics',
-      'svl - english': 'Sec. School English',
-      'svl - geography': 'Sec. School Geography',
-      'svl - history': 'Sec. School History',
-      'svl - physics': 'Sec. School Physics',
-      'academic (avl)': 'Academic (AVL)',
-      'science word list': 'Science Word List',
-    };
+  // _formatCategory replaced by CategoryUtils.formatName
 
-    if (displayNames.containsKey(tag)) return displayNames[tag]!;
-
-    return tag
-        .split('-')
-        .map((word) {
-          if (word.isEmpty) return '';
-          return word[0].toUpperCase() + word.substring(1);
-        })
-        .join(' ');
-  }
+  // ... (existing helper methods)
 
   void _navigateToSettings() {
     Navigator.of(
@@ -309,12 +276,35 @@ class _HomeContentState extends State<_HomeContent> {
     ).push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
   }
 
+  void _startGame(BuildContext context, {bool isResuming = false}) {
+    final settings = context.read<SettingsRepository>();
+    final categories = settings.defaultCategories;
+    final levelKey = settings.gameLevel;
+    final level = gameLevels.firstWhere(
+      (l) => l.key == levelKey,
+      orElse: () => gameLevels[2],
+    );
+
+    // If starting NEW game, we might want to confirm if one exists?
+    // For now, straightforward push. GameScreen will handle the "Start" event if !isResuming.
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => GameScreen(
+          categories: categories.isEmpty ? ['all'] : categories,
+          level: level,
+          isResuming: isResuming,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-
-    // Watch settings changes directly in build to trigger rebuilds
     final settings = context.watch<SettingsRepository>();
+    final gameState = context.watch<GameBloc>().state;
+    final isGameActive = gameState.status == GameStatus.playing;
 
     // Derive Level Summary
     final levelKey = settings.gameLevel;
@@ -331,7 +321,7 @@ class _HomeContentState extends State<_HomeContent> {
     if (cats.isEmpty || cats.contains('all')) {
       categorySummary = "All Categories";
     } else if (cats.length == 1) {
-      categorySummary = _formatCategory(cats.first);
+      categorySummary = CategoryUtils.formatName(cats.first);
     } else {
       categorySummary = "${cats.length} Categories Selected";
     }
@@ -411,80 +401,53 @@ class _HomeContentState extends State<_HomeContent> {
 
           const SizedBox(height: 48),
 
-          // Hero Play Button
-          GestureDetector(
-            onTap: () {
-              final categories = settings.defaultCategories;
-              final levelKey = settings.gameLevel;
-              final level = gameLevels.firstWhere(
-                (l) => l.key == levelKey,
-                orElse: () => gameLevels[2],
-              );
-
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => GameScreen(
-                    categories: categories.isEmpty ? ['all'] : categories,
-                    level: level,
-                  ),
-                ),
-              );
-            },
-            child: Container(
-              width: 220,
-              height: 80,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFFFAB40), Color(0xFFFF6D00)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(40),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFFF6D00).withOpacity(0.5),
-                    offset: const Offset(0, 10),
-                    blurRadius: 20,
-                    spreadRadius: 2,
-                  ),
-                  const BoxShadow(
-                    color: Colors.white30,
-                    offset: Offset(0, -2),
-                    blurRadius: 2,
-                    spreadRadius: 0,
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    l10n.play.toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 32,
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 2,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black12,
-                          offset: Offset(0, 2),
-                          blurRadius: 2,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Icon(
-                    Icons.play_arrow_rounded,
-                    color: Colors.white,
-                    size: 40,
-                  ),
-                ],
+          // Actions
+          if (isGameActive) ...[
+            // RESUME BUTTON
+            GestureDetector(
+              onTap: () => _startGame(context, isResuming: true),
+              child: _buildMainButton(
+                context,
+                label: "RESUME GAME",
+                icon: Icons.play_arrow_rounded,
+                colors: [Color(0xFF69F0AE), Color(0xFF00E676)], // Green
               ),
             ),
-          ),
+            const SizedBox(height: 16),
+            // NEW GAME BUTTON (Small)
+            TextButton(
+              onPressed: () => _startGame(context, isResuming: false),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  "START NEW GAME",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ),
+          ] else ...[
+            // PLAY BUTTON
+            GestureDetector(
+              onTap: () => _startGame(context, isResuming: false),
+              child: _buildMainButton(
+                context,
+                label: l10n.play.toUpperCase(),
+                icon: Icons.play_arrow_rounded,
+                colors: [Color(0xFFFFAB40), Color(0xFFFF6D00)], // Orange
+              ),
+            ),
+          ],
 
           const SizedBox(height: 40),
 
@@ -554,6 +517,65 @@ class _HomeContentState extends State<_HomeContent> {
           ),
 
           const SizedBox(height: 80),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMainButton(
+    BuildContext context, {
+    required String label,
+    required IconData icon,
+    required List<Color> colors,
+  }) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 220),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      height: 80,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: colors,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(40),
+        boxShadow: [
+          BoxShadow(
+            color: colors.last.withOpacity(0.5),
+            offset: const Offset(0, 10),
+            blurRadius: 20,
+            spreadRadius: 2,
+          ),
+          const BoxShadow(
+            color: Colors.white30,
+            offset: Offset(0, -2),
+            blurRadius: 2,
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 24, // Slightly smaller to fit "RESUME GAME"
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.5,
+              shadows: [
+                Shadow(
+                  color: Colors.black12,
+                  offset: Offset(0, 2),
+                  blurRadius: 2,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Icon(icon, color: Colors.white, size: 36),
         ],
       ),
     );

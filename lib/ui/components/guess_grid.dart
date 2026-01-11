@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../logic/game_state.dart';
+import 'word_detail_dialog.dart';
 
 class GuessGrid extends StatelessWidget {
   final List<String> guesses;
@@ -22,6 +23,7 @@ class GuessGrid extends StatelessWidget {
       children: List.generate(maxAttempts, (index) {
         String word = '';
         bool isCurrent = false;
+        bool isSubmitted = index < guesses.length;
 
         if (index < guesses.length) {
           word = guesses[index];
@@ -32,11 +34,21 @@ class GuessGrid extends StatelessWidget {
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 12.0),
-          child: _buildRow(
-            word,
-            targetWord.length,
-            isSubmitted: index < guesses.length,
-            isCurrent: isCurrent,
+          child: GestureDetector(
+            onTap: isSubmitted
+                ? () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => WordDetailDialog(word: word),
+                    );
+                  }
+                : null,
+            child: _buildRow(
+              word,
+              targetWord.length,
+              isSubmitted: isSubmitted,
+              isCurrent: isCurrent,
+            ),
           ),
         );
       }),

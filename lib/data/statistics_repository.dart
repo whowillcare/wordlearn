@@ -4,6 +4,7 @@ import 'game_score.dart';
 
 class StatisticsRepository {
   static const _keyPrefix = 'stats_';
+  static const _keyPoints = 'user_total_points';
   SharedPreferences? _prefs;
 
   static Future<StatisticsRepository> init() async {
@@ -24,6 +25,27 @@ class StatisticsRepository {
       }
     }
     return GameScore.initial(levelKey);
+  }
+
+  Future<int> getTotalPoints() async {
+    if (_prefs == null) await init();
+    return _prefs!.getInt(_keyPoints) ?? 0;
+  }
+
+  Future<void> addPoints(int amount) async {
+    if (_prefs == null) await init();
+    final current = await getTotalPoints();
+    await _prefs!.setInt(_keyPoints, current + amount);
+  }
+
+  Future<bool> deductPoints(int amount) async {
+    if (_prefs == null) await init();
+    final current = await getTotalPoints();
+    if (current >= amount) {
+      await _prefs!.setInt(_keyPoints, current - amount);
+      return true;
+    }
+    return false;
   }
 
   Future<void> recordGame({

@@ -1,0 +1,106 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../data/word_repository.dart';
+import '../../l10n/app_localizations.dart';
+
+class WordDetailDialog extends StatefulWidget {
+  final String word;
+
+  const WordDetailDialog({Key? key, required this.word}) : super(key: key);
+
+  @override
+  State<WordDetailDialog> createState() => _WordDetailDialogState();
+}
+
+class _WordDetailDialogState extends State<WordDetailDialog> {
+  bool? _isLearnt;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkStatus();
+  }
+
+  Future<void> _checkStatus() async {
+    final repo = context.read<WordRepository>();
+    final isLearnt = await repo.isWordLearnt(widget.word);
+    if (mounted) {
+      setState(() {
+        _isLearnt = isLearnt;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _toggleStatus() async {
+    if (_isLearnt == null) return;
+    setState(() => _isLoading = true);
+
+    final repo = context.read<WordRepository>();
+    try {
+      if (_isLearnt!) {
+        await repo.deleteLearntWord(widget.word);
+        if (mounted) setState(() => _isLearnt = false);
+      } else {
+        // We need a category. For now, fetch generic or existing.
+        final category = await repo.getWordCategory(widget.word);
+        await repo.addLearntWord(widget.word, category);
+        if (mounted) setState(() => _isLearnt = true);
+      }
+    } catch (e) {
+      // Handle error
+      print(e);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Text(
+        widget.word.toUpperCase(),
+        textAlign: TextAlign.center,
+        style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            "Tap the bookmark to add or remove this word from your library.",
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 20),
+          if (_isLoading)
+            const CircularProgressIndicator()
+          else
+            IconButton(
+              onPressed: _toggleStatus,
+              icon: Icon(
+                _isLearnt == true ? Icons.bookmark : Icons.bookmark_border,
+                size: 48,
+                color: _isLearnt == true ? Colors.deepPurple : Colors.grey,
+              ),
+              tooltip: _isLearnt == true
+                  ? 'Remove from Library'
+                  : 'Add to Library',
+            ),
+          if (_isLearnt == true && !_isLoading)
+            const Padding(
+              padding: EdgeInsets.only(top: 8.0),
+              child: Text("Saved!", style: TextStyle(color: Colors.green)),
+            ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, _isLearnt),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+}
