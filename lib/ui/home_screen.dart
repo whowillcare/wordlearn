@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../data/word_repository.dart';
+
 import '../data/game_levels.dart';
 import '../logic/game_bloc.dart';
 import '../logic/game_state.dart'; // Ensure state enum is visible
+import '../data/statistics_repository.dart';
 import '../data/ingestion_result.dart';
 import '../data/settings_repository.dart';
 import 'game_screen.dart';
@@ -35,6 +36,47 @@ class _HomeScreenState extends State<HomeScreen>
       vsync: this,
       duration: const Duration(seconds: 10),
     )..repeat(reverse: true);
+    // Check Daily Bonus
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkDailyBonus());
+  }
+
+  Future<void> _checkDailyBonus() async {
+    final stats = context.read<StatisticsRepository>();
+    final result = await stats.checkDailyBonus();
+    if (result['claimed'] == false && mounted) {
+      final reward = result['reward'];
+      final streak = result['streak'];
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text(
+            "Daily Bonus! 🎉",
+            style: TextStyle(color: Colors.orange),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text("You maintained a $streak day streak!"),
+              const SizedBox(height: 10),
+              Text(
+                "+$reward Coins",
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Claim"),
+            ),
+          ],
+        ),
+      );
+      setState(() {}); // Refresh points display
+    }
   }
 
   @override
@@ -169,84 +211,103 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildGamificationHeader(BuildContext context) {
-    const points = 1250;
-    const isVip = true;
-    final l10n = AppLocalizations.of(context)!;
+    // Connect to real points
+    final statsRepo = context.watch<StatisticsRepository>();
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
-      child: GlassContainer(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Row(
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
-                boxShadow: const [
-                  BoxShadow(color: Colors.black26, blurRadius: 4),
-                ],
-              ),
-              child: const CircleAvatar(
-                backgroundColor: Colors.white,
-                radius: 18,
-                child: Icon(Icons.person, color: Colors.deepPurple),
-              ),
-            ),
-            const SizedBox(width: 12),
-            if (isVip)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Colors.amber, Colors.orange],
+    return FutureBuilder<int>(
+      future: statsRepo.getTotalPoints(),
+      initialData: 0,
+      builder: (context, snapshot) {
+        final points = snapshot.data ?? 0;
+        const isVip = true; // Placeholder
+        final l10n = AppLocalizations.of(context)!;
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+          child: GlassContainer(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black26, blurRadius: 4),
+                    ],
                   ),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: const [
-                    BoxShadow(color: Colors.black26, blurRadius: 4),
-                  ],
+                  child: const CircleAvatar(
+                    backgroundColor: Colors.white,
+                    radius: 18,
+                    child: Icon(Icons.person, color: Colors.deepPurple),
+                  ),
                 ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.star, size: 14, color: Colors.white),
-                    const SizedBox(width: 4),
-                    Text(
-                      l10n.vipMode.toUpperCase(),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 10,
-                        color: Colors.white,
+                const SizedBox(width: 12),
+                if (isVip)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Colors.amber, Colors.orange],
                       ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: const [
+                        BoxShadow(color: Colors.black26, blurRadius: 4),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-            const Spacer(),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.white.withOpacity(0.1)),
-              ),
-              child: Row(
-                children: [
-                  Text(
-                    "$points",
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 14,
-                      color: Colors.white,
+                    child: Row(
+                      children: [
+                        const Icon(Icons.star, size: 14, color: Colors.white),
+                        const SizedBox(width: 4),
+                        Text(
+                          l10n.vipMode.toUpperCase(),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.diamond, size: 16, color: Colors.cyanAccent),
-                ],
-              ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white.withOpacity(0.1)),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        "$points",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(
+                        Icons.diamond,
+                        size: 16,
+                        color: Colors.cyanAccent,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

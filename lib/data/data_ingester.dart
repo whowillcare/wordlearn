@@ -4,26 +4,22 @@ import 'package:path/path.dart' as p;
 import 'word_repository.dart';
 import 'ingestion_result.dart';
 
+import 'settings_repository.dart';
+
 class DataIngester {
   final WordRepository _repository;
+  final SettingsRepository _settingsRepository;
 
-  DataIngester(this._repository);
+  DataIngester(this._repository, this._settingsRepository);
 
   Future<IngestionResult> ingestData() async {
     final int currentCount = await _repository.getWordCount();
     final List<String> errors = [];
     int filesFound = 0;
 
-    // We proceed even if count > 0 to gather stats, but skip insert if > 0
-    if (currentCount > 0) {
-      return IngestionResult(
-        success: true,
-        initialCount: currentCount,
-        finalCount: currentCount,
-        filesFound: 0, // Skipped scan
-        errors: [],
-      );
-    }
+    // Smart Ingestion: Check against tracked files, not just total count.
+    final alreadyIngested = _settingsRepository.ingestedFiles;
+
     print('Starting explicit data ingestion check...');
 
     try {
@@ -46,6 +42,11 @@ class DataIngester {
           final String fileName = p.basename(filePath);
           final String category = fileName.replaceAll('.json', '');
 
+          if (alreadyIngested.contains(fileName)) {
+            // Skip already ingested file
+            continue;
+          }
+
           final String jsonContent = await rootBundle.loadString(filePath);
           final dynamic parsed = json.decode(jsonContent);
 
@@ -57,6 +58,7 @@ class DataIngester {
                   .toList();
 
               await _repository.bulkInsertWords(batch);
+              await _settingsRepository.addIngestedFile(fileName);
               print('Ingested ${words.length} words for category: $category');
             }
           }

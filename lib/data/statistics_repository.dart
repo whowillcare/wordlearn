@@ -5,6 +5,8 @@ import 'game_score.dart';
 class StatisticsRepository {
   static const _keyPrefix = 'stats_';
   static const _keyPoints = 'user_total_points';
+  static const _keyLastLogin = 'last_login_date';
+  static const _keyDailyStreak = 'daily_streak';
   SharedPreferences? _prefs;
 
   static Future<StatisticsRepository> init() async {
@@ -29,13 +31,59 @@ class StatisticsRepository {
 
   Future<int> getTotalPoints() async {
     if (_prefs == null) await init();
+    if (!_prefs!.containsKey(_keyPoints)) {
+      // New user bonus
+      await _prefs!.setInt(_keyPoints, 100);
+      return 100;
+    }
     return _prefs!.getInt(_keyPoints) ?? 0;
   }
 
   Future<void> addPoints(int amount) async {
+    // Force init check inside getTotalPoints is enough but let's be safe
     if (_prefs == null) await init();
     final current = await getTotalPoints();
     await _prefs!.setInt(_keyPoints, current + amount);
+  }
+
+  // Daily Bonus Logic
+  Future<Map<String, dynamic>> checkDailyBonus() async {
+    if (_prefs == null) await init();
+    final now = DateTime.now();
+    final lastLoginStr = _prefs!.getString(_keyLastLogin);
+    int streak = _prefs!.getInt(_keyDailyStreak) ?? 0;
+
+    if (lastLoginStr != null) {
+      final lastLogin = DateTime.parse(lastLoginStr);
+      final difference = now.difference(lastLogin).inDays;
+
+      if (difference == 0) {
+        // Already claimed today
+        return {'claimed': true, 'streak': streak, 'reward': 0};
+      } else if (difference == 1) {
+        // Consecutive day
+        streak++;
+      } else {
+        // Streak broken
+        streak = 1;
+      }
+    } else {
+      // First time login ever
+      streak = 1;
+    }
+
+    // Reward Logic
+    int reward = 20;
+    if (streak % 7 == 0) {
+      reward = 100; // Big reward every 7 days
+    }
+
+    // Save
+    await _prefs!.setString(_keyLastLogin, now.toIso8601String());
+    await _prefs!.setInt(_keyDailyStreak, streak);
+    await addPoints(reward);
+
+    return {'claimed': false, 'streak': streak, 'reward': reward};
   }
 
   Future<bool> deductPoints(int amount) async {

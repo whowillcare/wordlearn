@@ -11,6 +11,8 @@ class SettingsRepository extends ChangeNotifier {
   static const String _keyLanguage = 'language_code';
   static const String _keyDefaultCategories = 'default_categories';
   static const String _keyGameLevel = 'game_level';
+
+  static const String _keyIngestedFiles = 'ingested_files';
   static const String _keyDefaultCategory =
       'default_category'; // Deprecated for single value
 
@@ -111,5 +113,19 @@ class SettingsRepository extends ChangeNotifier {
     await _prefs.setString(_keyGameLevel, value);
     notifyListeners();
     syncSettings();
+  }
+
+  List<String> get ingestedFiles {
+    return _prefs.getStringList(_keyIngestedFiles) ?? [];
+  }
+
+  Future<void> addIngestedFile(String filename) async {
+    final current = ingestedFiles;
+    if (!current.contains(filename)) {
+      current.add(filename);
+      await _prefs.setStringList(_keyIngestedFiles, current);
+      // No need to notify listeners usually for this internal init data, but fine if we do.
+      // notifyListeners();
+    }
   }
 }

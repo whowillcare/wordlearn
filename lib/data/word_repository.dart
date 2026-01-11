@@ -155,6 +155,22 @@ class WordRepository {
     return result.first['count'] as int;
   }
 
+  Future<List<String>> getWordCategories(String word) async {
+    final db = await _dbHelper.database;
+    final result = db.select(
+      '''
+      SELECT c.tag 
+      FROM categories c
+      JOIN word_categories wc ON c.id = wc.category_id
+      JOIN words w ON wc.word_id = w.id
+      WHERE w.text = ? 
+      ORDER BY c.tag
+      ''',
+      [word],
+    );
+    return result.map((row) => row['tag'] as String).toList();
+  }
+
   Future<String> getWordCategory(String word) async {
     final db = await _dbHelper.database;
     // Returns the first found category for the word

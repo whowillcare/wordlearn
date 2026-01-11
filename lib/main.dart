@@ -45,7 +45,10 @@ void main() async {
   final wordRepo = WordRepository();
   final statsRepo = await StatisticsRepository.init();
   final settingsRepo = await SettingsRepository.init();
-  final ingestionResult = await DataIngester(wordRepo).ingestData();
+  final ingestionResult = await DataIngester(
+    wordRepo,
+    settingsRepo,
+  ).ingestData();
 
   runApp(
     MyApp(

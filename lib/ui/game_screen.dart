@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:confetti/confetti.dart';
-import '../data/word_repository.dart';
-import '../data/statistics_repository.dart';
 import '../data/game_levels.dart';
 import '../logic/game_bloc.dart';
 import '../logic/game_state.dart';
 import '../data/settings_repository.dart';
-import '../data/word_repository.dart';
+
+import 'package:share_plus/share_plus.dart';
+import 'package:screenshot/screenshot.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+
 import 'components/guess_grid.dart';
 import 'components/keyboard.dart';
 import 'components/interstitial_ad_controller.dart';
@@ -37,6 +40,7 @@ class _GameScreenState extends State<GameScreen> {
   late ConfettiController _confettiController;
   late InterstitialAdController _adController;
   late RewardedAdController _rewardedAdController;
+  final ScreenshotController _screenshotController = ScreenshotController();
 
   @override
   void initState() {
@@ -105,6 +109,11 @@ class _GameScreenState extends State<GameScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.share, color: Colors.deepPurple),
+            tooltip: 'Ask for Help',
+            onPressed: () => _shareGameplay(),
+          ),
           // Score Display
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
@@ -134,186 +143,196 @@ class _GameScreenState extends State<GameScreen> {
           ),
         ],
       ),
-      body: BlocConsumer<GameBloc, GameState>(
-        listener: (context, state) {
-          if (state.status == GameStatus.won) {
-            _adController.showAd();
-            _confettiController.play();
-            _showVictoryDialog(context, state);
-          } else if (state.status == GameStatus.lost) {
-            _adController.showAd();
-            // Show Defeat/Revive Dialog
-            _showDefeatDialog(context, state);
-          }
-        },
-        builder: (context, state) {
-          if (state.status == GameStatus.initial) {
-            return const Center(child: CircularProgressIndicator());
-          }
 
-          return Column(
-            children: [
-              const BannerAdWidget(),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isLandscape =
-                        constraints.maxWidth > constraints.maxHeight;
-                    final settings = context.read<SettingsRepository>();
+      body: Screenshot(
+        controller: _screenshotController,
+        child: BlocConsumer<GameBloc, GameState>(
+          listener: (context, state) {
+            if (state.status == GameStatus.won) {
+              _adController.showAd();
+              _confettiController.play();
+              _showVictoryDialog(context, state);
+            } else if (state.status == GameStatus.lost) {
+              _adController.showAd();
+              // Show Defeat/Revive Dialog
+              _showDefeatDialog(context, state);
+            }
+          },
+          builder: (context, state) {
+            if (state.status == GameStatus.initial) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-                    // Content Wrappers
-                    final gridSection = Center(
-                      child: SingleChildScrollView(
-                        child: GuessGrid(
-                          guesses: state.guesses,
-                          currentGuess: state.currentGuess,
-                          targetWord: state.targetWord,
-                          maxAttempts: state.level?.attempts ?? 6,
-                        ),
-                      ),
-                    );
+            return Column(
+              children: [
+                const BannerAdWidget(),
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isLandscape =
+                          constraints.maxWidth > constraints.maxHeight;
+                      final settings = context.read<SettingsRepository>();
 
-                    final controlsSection = Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Power-up Row
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16.0,
-                            vertical: 8.0,
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              _buildHintButton(context, state),
-                              const SizedBox(width: 16),
-                              _buildPowerUpButton(
-                                context,
-                                icon: Icons.shuffle,
-                                label: AppLocalizations.of(context)!.shuffle,
-                                onTap: null, // Placeholder
-                              ),
-                            ],
+                      // Content Wrappers
+                      final gridSection = Center(
+                        child: SingleChildScrollView(
+                          child: GuessGrid(
+                            guesses: state.guesses,
+                            currentGuess: state.currentGuess,
+                            targetWord: state.targetWord,
+                            maxAttempts: state.level?.attempts ?? 6,
                           ),
                         ),
+                      );
 
-                        if (state.status == GameStatus.won)
-                          _buildPostGameControls(context, state)
-                        else
-                          Keyboard(
-                            letterStatus: state.letterStatus,
-                            allowSpecialChars: settings.isSpecialCharsAllowed,
-                            onKeyTap: (letter) {
-                              context.read<GameBloc>().add(
-                                GuessEntered(letter),
-                              );
-                            },
-                            onDeleteTap: () {
-                              context.read<GameBloc>().add(GuessDeleted());
-                            },
-                            onEnterTap: () {
-                              context.read<GameBloc>().add(GuessSubmitted());
-                            },
-                          ),
-                        if (state.isCategoryRevealed)
+                      final controlsSection = Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Power-up Row
                           Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8.0),
-                            child: FutureBuilder<String>(
-                              future: context
-                                  .read<WordRepository>()
-                                  .getWordCategory(state.targetWord),
-                              builder: (context, snapshot) {
-                                if (!snapshot.hasData)
-                                  return const SizedBox.shrink();
-                                return Text(
-                                  "Category: ${CategoryUtils.formatName(snapshot.data!)}",
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16.0,
+                              vertical: 8.0,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                _buildHintButton(context, state),
+                                const SizedBox(width: 16),
+                                _buildPowerUpButton(
+                                  context,
+                                  icon: Icons.shuffle,
+                                  label: AppLocalizations.of(context)!.shuffle,
+                                  onTap: null, // Placeholder
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          if (state.status == GameStatus.won)
+                            _buildPostGameControls(context, state)
+                          else
+                            Keyboard(
+                              letterStatus: state.letterStatus,
+                              allowSpecialChars: settings.isSpecialCharsAllowed,
+                              onKeyTap: (letter) {
+                                context.read<GameBloc>().add(
+                                  GuessEntered(letter),
+                                );
+                              },
+                              onDeleteTap: () {
+                                context.read<GameBloc>().add(GuessDeleted());
+                              },
+                              onEnterTap: () {
+                                context.read<GameBloc>().add(GuessSubmitted());
+                              },
+                            ),
+                          if (state.isCategoryRevealed)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 8.0,
+                                horizontal: 16.0,
+                              ),
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.yellow.shade100,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.orange.shade200,
+                                  ),
+                                ),
+                                child: Text(
+                                  state.hintMessage ?? "Category: ...",
+                                  textAlign: TextAlign.center,
                                   style: const TextStyle(
-                                    color: Colors.deepPurple,
+                                    color: Colors.deepOrange,
                                     fontStyle: FontStyle.italic,
                                     fontWeight: FontWeight.bold,
                                   ),
-                                );
-                              },
+                                ),
+                              ),
+                            ),
+                          const SizedBox(height: 10),
+                        ],
+                      );
+
+                      return Stack(
+                        children: [
+                          if (isLandscape)
+                            Row(
+                              children: [
+                                Expanded(flex: 1, child: gridSection),
+                                Expanded(flex: 1, child: controlsSection),
+                              ],
+                            )
+                          else
+                            Column(
+                              children: [
+                                Expanded(child: gridSection),
+                                controlsSection,
+                              ],
+                            ),
+
+                          // Confetti
+                          Align(
+                            alignment: Alignment.topCenter,
+                            child: ConfettiWidget(
+                              confettiController: _confettiController,
+                              blastDirectionality:
+                                  BlastDirectionality.explosive,
+                              shouldLoop: false,
+                              colors: const [
+                                Colors.green,
+                                Colors.blue,
+                                Colors.pink,
+                                Colors.orange,
+                                Colors.purple,
+                              ],
                             ),
                           ),
-                        const SizedBox(height: 10),
-                      ],
-                    );
 
-                    return Stack(
-                      children: [
-                        if (isLandscape)
-                          Row(
-                            children: [
-                              Expanded(flex: 1, child: gridSection),
-                              Expanded(flex: 1, child: controlsSection),
-                            ],
-                          )
-                        else
-                          Column(
-                            children: [
-                              Expanded(child: gridSection),
-                              controlsSection,
-                            ],
-                          ),
-
-                        // Confetti
-                        Align(
-                          alignment: Alignment.topCenter,
-                          child: ConfettiWidget(
-                            confettiController: _confettiController,
-                            blastDirectionality: BlastDirectionality.explosive,
-                            shouldLoop: false,
-                            colors: const [
-                              Colors.green,
-                              Colors.blue,
-                              Colors.pink,
-                              Colors.orange,
-                              Colors.purple,
-                            ],
-                          ),
-                        ),
-
-                        // Error Messages
-                        if (state.errorMessage != null)
-                          Positioned(
-                            top: 20,
-                            left: 0,
-                            right: 0,
-                            child: Center(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.redAccent,
-                                  borderRadius: BorderRadius.circular(20),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      color: Colors.black26,
-                                      blurRadius: 8,
+                          // Error Messages
+                          if (state.errorMessage != null)
+                            Positioned(
+                              top: 20,
+                              left: 0,
+                              right: 0,
+                              child: Center(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.redAccent,
+                                    borderRadius: BorderRadius.circular(20),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        color: Colors.black26,
+                                        blurRadius: 8,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Text(
+                                    state.errorMessage!,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
                                     ),
-                                  ],
-                                ),
-                                child: Text(
-                                  state.errorMessage!,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                      ],
-                    );
-                  },
+                        ],
+                      );
+                    },
+                  ),
                 ),
-              ),
-            ],
-          );
-        },
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -433,6 +452,48 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
+  Future<void> _shareVictory() async {
+    try {
+      final image = await _screenshotController.capture();
+      if (image == null) return;
+
+      final directory = await getTemporaryDirectory();
+      final imagePath = await File('${directory.path}/victory.png').create();
+      await imagePath.writeAsBytes(image);
+
+      if (mounted) {
+        // Close dialog first if we want clean share/resume flow, or keep it open.
+        // Usually keeping it open is fine.
+        await Share.shareXFiles([
+          XFile(imagePath.path),
+        ], text: 'I just won in Word-Le-Earn! 🏆 Can you beat me? #WordLeEarn');
+      }
+    } catch (e) {
+      print('Share error: $e');
+    }
+  }
+
+  Future<void> _shareGameplay() async {
+    try {
+      final image = await _screenshotController.capture();
+      if (image == null) return;
+
+      final directory = await getTemporaryDirectory();
+      final imagePath = await File('${directory.path}/gameplay.png').create();
+      await imagePath.writeAsBytes(image);
+
+      if (mounted) {
+        await Share.shareXFiles(
+          [XFile(imagePath.path)],
+          text:
+              'Stuck on this word in Word-Le-Earn! 😫 Can you help me out? #WordLeEarn',
+        );
+      }
+    } catch (e) {
+      print('Share error: $e');
+    }
+  }
+
   void _showVictoryDialog(BuildContext context, GameState state) {
     showDialog(
       context: context,
@@ -479,6 +540,11 @@ class _GameScreenState extends State<GameScreen> {
                       icon: const Icon(Icons.bookmark_add),
                       label: Text(AppLocalizations.of(context)!.library),
                     ),
+                  TextButton.icon(
+                    onPressed: () => _shareVictory(),
+                    icon: const Icon(Icons.share, color: Colors.blueAccent),
+                    label: const Text('Share'),
+                  ),
                   ElevatedButton(
                     onPressed: () => Navigator.pop(context),
                     style: ElevatedButton.styleFrom(

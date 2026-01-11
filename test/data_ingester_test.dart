@@ -4,6 +4,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
 import 'package:word_learn_app/data/data_ingester.dart';
 import 'package:word_learn_app/data/word_repository.dart';
+import 'package:word_learn_app/data/settings_repository.dart';
+
+class MockSettingsRepository extends Mock implements SettingsRepository {
+  List<String> _ingestedFiles = [];
+
+  @override
+  List<String> get ingestedFiles => _ingestedFiles;
+
+  @override
+  Future<void> addIngestedFile(String filename) async {
+    _ingestedFiles.add(filename);
+  }
+}
 
 class MockWordRepository extends Mock implements WordRepository {
   int count = 0;
@@ -68,7 +81,8 @@ void main() {
     skip: true,
     () async {
       final mockRepo = MockWordRepository();
-      final ingester = DataIngester(mockRepo);
+      final mockSettings = MockSettingsRepository();
+      final ingester = DataIngester(mockRepo, mockSettings);
 
       // Mock AssetManifest.json
       final manifest = {

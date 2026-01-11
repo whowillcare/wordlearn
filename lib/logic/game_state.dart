@@ -22,6 +22,7 @@ class GameState extends Equatable {
   final int hintLevel;
   final bool isCategoryRevealed;
   final int bonusAttempts;
+  final String? hintMessage;
 
   const GameState({
     this.status = GameStatus.initial,
@@ -39,6 +40,7 @@ class GameState extends Equatable {
     this.hintLevel = 0,
     this.isCategoryRevealed = false,
     this.bonusAttempts = 0,
+    this.hintMessage,
   });
 
   final int? categoryWordCount;
@@ -60,6 +62,8 @@ class GameState extends Equatable {
     int? hintLevel,
     bool? isCategoryRevealed,
     int? bonusAttempts,
+    String? hintMessage,
+    bool clearHint = false,
   }) {
     return GameState(
       status: status ?? this.status,
@@ -78,6 +82,7 @@ class GameState extends Equatable {
       hintLevel: hintLevel ?? this.hintLevel,
       isCategoryRevealed: isCategoryRevealed ?? this.isCategoryRevealed,
       bonusAttempts: bonusAttempts ?? this.bonusAttempts,
+      hintMessage: clearHint ? null : (hintMessage ?? this.hintMessage),
     );
   }
 
@@ -97,5 +102,6 @@ class GameState extends Equatable {
     isCategoryRevealed,
     bonusAttempts,
     isWordSaved,
+    hintMessage,
   ];
 }
