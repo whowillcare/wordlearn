@@ -1,61 +1,93 @@
-import 'package:sqlite3/sqlite3.dart';
+import 'package:sqflite/sqflite.dart';
 import 'database_helper.dart';
 
 class WordRepository {
   final DatabaseHelper _dbHelper = DatabaseHelper();
 
   // Insert a word (Single Category - Legacy compatibility helper)
-  // In new system, prefer using bulk ingest or dedicated multi-category logic
   Future<void> insertWord(String text, String categoryTag) async {
     final db = await _dbHelper.database;
 
     // 1. Insert/Get Category
-    db.execute('INSERT OR IGNORE INTO categories (tag, type) VALUES (?, ?)', [
-      categoryTag,
-      'Custom',
-    ]);
-    final catResult = db.select('SELECT id FROM categories WHERE tag = ?', [
-      categoryTag,
-    ]);
-    final catId = catResult.first['id'];
+    await db.insert('categories', {
+      'tag': categoryTag,
+      'type': 'Custom',
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+
+    final catResult = await db.query(
+      'categories',
+      columns: ['id'],
+      where: 'tag = ?',
+      whereArgs: [categoryTag],
+    );
+    final catId = catResult.first['id'] as int;
 
     // 2. Insert/Get Word
-    db.execute('INSERT OR IGNORE INTO words (text, length) VALUES (?, ?)', [
-      text.toLowerCase(),
-      text.length,
-    ]);
-    final wordResult = db.select('SELECT id FROM words WHERE text = ?', [
-      text.toLowerCase(),
-    ]);
-    final wordId = wordResult.first['id'];
+    await db.insert('words', {
+      'text': text.toLowerCase(),
+      'length': text.length,
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+
+    final wordResult = await db.query(
+      'words',
+      columns: ['id'],
+      where: 'text = ?',
+      whereArgs: [text.toLowerCase()],
+    );
+    final wordId = wordResult.first['id'] as int;
 
     // 3. Link
-    db.execute(
-      'INSERT OR IGNORE INTO word_categories (word_id, category_id) VALUES (?, ?)',
-      [wordId, catId],
-    );
+    await db.insert('word_categories', {
+      'word_id': wordId,
+      'category_id': catId,
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
   Future<void> bulkInsertWords(List<Map<String, dynamic>> words) async {
-    // This logic is mostly handled by data_ingester/database_helper now.
-    // Keeping this stub or simple implementation if needed for runtime additions.
-    // For now, simple loop wrapper.
     final db = await _dbHelper.database;
-    db.execute('BEGIN TRANSACTION');
-    try {
+    await db.transaction((txn) async {
       for (var w in words) {
-        await insertWord(w['text'], w['category']);
+        // Re-implement insertWord logic using txn
+        String text = w['text'];
+        String categoryTag = w['category'];
+
+        await txn.insert('categories', {
+          'tag': categoryTag,
+          'type': 'Custom',
+        }, conflictAlgorithm: ConflictAlgorithm.ignore);
+
+        final catResult = await txn.query(
+          'categories',
+          columns: ['id'],
+          where: 'tag = ?',
+          whereArgs: [categoryTag],
+        );
+        final catId = catResult.first['id'] as int;
+
+        await txn.insert('words', {
+          'text': text.toLowerCase(),
+          'length': text.length,
+        }, conflictAlgorithm: ConflictAlgorithm.ignore);
+
+        final wordResult = await txn.query(
+          'words',
+          columns: ['id'],
+          where: 'text = ?',
+          whereArgs: [text.toLowerCase()],
+        );
+        final wordId = wordResult.first['id'] as int;
+
+        await txn.insert('word_categories', {
+          'word_id': wordId,
+          'category_id': catId,
+        }, conflictAlgorithm: ConflictAlgorithm.ignore);
       }
-      db.execute('COMMIT');
-    } catch (e) {
-      db.execute('ROLLBACK');
-      rethrow;
-    }
+    });
   }
 
   Future<List<String>> getCategories() async {
     final db = await _dbHelper.database;
-    final ResultSet results = db.select(
+    final results = await db.rawQuery(
       'SELECT DISTINCT tag FROM categories ORDER BY tag',
     );
     return results.map((row) => row['tag'] as String).toList();
@@ -63,7 +95,7 @@ class WordRepository {
 
   Future<bool> isValidWord(String word) async {
     final db = await _dbHelper.database;
-    final result = db.select(
+    final result = await db.rawQuery(
       'SELECT 1 FROM words WHERE text = ? COLLATE NOCASE LIMIT 1',
       [word],
     );
@@ -72,7 +104,7 @@ class WordRepository {
 
   Future<List<String>> searchCategories(String query) async {
     final db = await _dbHelper.database;
-    final result = db.select(
+    final result = await db.rawQuery(
       'SELECT DISTINCT tag FROM categories WHERE tag LIKE ? ORDER BY tag',
       ['%$query%'],
     );
@@ -91,7 +123,7 @@ class WordRepository {
         : " AND w.text NOT LIKE '%-%' AND w.text NOT LIKE '% %' AND w.text NOT LIKE '%''%'";
 
     if (categories.contains('all') || categories.isEmpty) {
-      final result = db.select(
+      final result = await db.rawQuery(
         'SELECT COUNT(*) as count FROM words w WHERE length >= ? AND length <= ?$specialCharFilter',
         [minLength, maxLength],
       );
@@ -99,7 +131,7 @@ class WordRepository {
     }
 
     final placeholders = List.filled(categories.length, '?').join(',');
-    final result = db.select(
+    final result = await db.rawQuery(
       '''
       SELECT COUNT(DISTINCT w.id) as count 
       FROM words w
@@ -124,40 +156,36 @@ class WordRepository {
         : " AND w.text NOT LIKE '%-%' AND w.text NOT LIKE '% %' AND w.text NOT LIKE '%''%'";
 
     if (categories.contains('all') || categories.isEmpty) {
-      final stmt = db.prepare(
+      final results = await db.rawQuery(
         'SELECT text FROM words w WHERE length >= ? AND length <= ?$specialCharFilter',
+        [minLength, maxLength],
       );
-      final ResultSet results = stmt.select([minLength, maxLength]);
-      stmt.close();
       return results.map((row) => row['text'] as String).toList();
     }
 
     final placeholders = List.filled(categories.length, '?').join(',');
-    final stmt = db.prepare('''
+    final results = await db.rawQuery(
+      '''
       SELECT DISTINCT w.text 
       FROM words w
       JOIN word_categories wc ON w.id = wc.word_id
       JOIN categories c ON wc.category_id = c.id
       WHERE c.tag IN ($placeholders) AND w.length >= ? AND w.length <= ?$specialCharFilter
-      ''');
-    final ResultSet results = stmt.select([
-      ...categories,
-      minLength,
-      maxLength,
-    ]);
-    stmt.close();
+      ''',
+      [...categories, minLength, maxLength],
+    );
     return results.map((row) => row['text'] as String).toList();
   }
 
   Future<int> getWordCount() async {
     final db = await _dbHelper.database;
-    final ResultSet result = db.select('SELECT COUNT(*) as count FROM words');
+    final result = await db.rawQuery('SELECT COUNT(*) as count FROM words');
     return result.first['count'] as int;
   }
 
   Future<List<String>> getWordCategories(String word) async {
     final db = await _dbHelper.database;
-    final result = db.select(
+    final result = await db.rawQuery(
       '''
       SELECT c.tag 
       FROM categories c
@@ -174,7 +202,7 @@ class WordRepository {
   Future<String> getWordCategory(String word) async {
     final db = await _dbHelper.database;
     // Returns the first found category for the word
-    final result = db.select(
+    final result = await db.rawQuery(
       '''
       SELECT c.tag 
       FROM categories c
@@ -194,33 +222,32 @@ class WordRepository {
   // --- Learnt Words / User Progress ---
 
   Future<void> addLearntWord(String word, String categoryTag) async {
-    // Note: We ignore categoryTag here regarding the UserProgress linkage,
-    // because the word itself is linked to categories via the static data.
-    // However, if we want to store *when* or *context* it was learnt, we might use it.
-    // For now, we just mark the word as Learnt in user_progress.
-
     final db = await _dbHelper.database;
 
     // Ensure word exists
-    final wordRes = db.select('SELECT id FROM words WHERE text = ?', [
-      word.toLowerCase(),
-    ]);
-    if (wordRes.isEmpty) return; // Should not happen if game flow is correct
-    final wordId = wordRes.first['id'];
+    final wordRes = await db.query(
+      'words',
+      columns: ['id'],
+      where: 'text = ?',
+      whereArgs: [word.toLowerCase()],
+    );
+    if (wordRes.isEmpty) return;
+    final wordId = wordRes.first['id'] as int;
 
-    final stmt = db.prepare('''
-      INSERT INTO user_progress (word_id, status, next_review_date)
-      VALUES (?, 'Learnt', ?)
-      ON CONFLICT(word_id) DO UPDATE SET status = 'Learnt', next_review_date = excluded.next_review_date
-      ''');
-    stmt.execute([wordId, DateTime.now().millisecondsSinceEpoch]);
-    stmt.close();
+    // Insert or Update
+    await db.insert('user_progress', {
+      'word_id': wordId,
+      'status': 'Learnt',
+      'next_review_date': DateTime.now().millisecondsSinceEpoch,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+
+    // Note: ConflictAlgorithm.replace replaces the whole row. If we want to keep other fields,
+    // we should use specialized update logic. But for now status/date are the main things.
   }
 
   Future<List<Map<String, dynamic>>> getLearntWords() async {
     final db = await _dbHelper.database;
-    // Join user_progress with words and (optionally) one category for display
-    final ResultSet results = db.select('''
+    final results = await db.rawQuery('''
       SELECT w.text, up.next_review_date, up.status
       FROM user_progress up
       JOIN words w ON up.word_id = w.id
@@ -228,20 +255,17 @@ class WordRepository {
       ORDER BY up.next_review_date DESC
       ''');
 
-    // We need to fetch a category for UI (legacy requirement)
-    // We'll just fetch 'a' category. Ideally, UI handles lists of categories.
     final List<Map<String, dynamic>> output = [];
 
     for (final row in results) {
-      final String text = row['text'];
+      final String text = row['text'] as String;
       final String cat = await getWordCategory(text);
 
       output.add({
         'word': text,
         'date_added': row['next_review_date'],
         'category': cat,
-        'is_favorite':
-            row['status'] == 'Mastered', // Mapping Mastered to Favorite for now
+        'is_favorite': row['status'] == 'Mastered',
       });
     }
     return output;
@@ -249,34 +273,42 @@ class WordRepository {
 
   Future<void> toggleFavorite(String word, bool isFav) async {
     final db = await _dbHelper.database;
-    final wordRes = db.select('SELECT id FROM words WHERE text = ?', [
-      word.toLowerCase(),
-    ]);
+    final wordRes = await db.query(
+      'words',
+      columns: ['id'],
+      where: 'text = ?',
+      whereArgs: [word.toLowerCase()],
+    );
     if (wordRes.isEmpty) return;
-    final wordId = wordRes.first['id'];
+    final wordId = wordRes.first['id'] as int;
 
     final status = isFav ? 'Mastered' : 'Learnt';
 
-    db.execute('UPDATE user_progress SET status = ? WHERE word_id = ?', [
-      status,
-      wordId,
-    ]);
+    await db.update(
+      'user_progress',
+      {'status': status},
+      where: 'word_id = ?',
+      whereArgs: [wordId],
+    );
   }
 
   Future<void> deleteLearntWord(String word) async {
     final db = await _dbHelper.database;
-    final wordRes = db.select('SELECT id FROM words WHERE text = ?', [
-      word.toLowerCase(),
-    ]);
+    final wordRes = await db.query(
+      'words',
+      columns: ['id'],
+      where: 'text = ?',
+      whereArgs: [word.toLowerCase()],
+    );
     if (wordRes.isEmpty) return;
-    final wordId = wordRes.first['id'];
+    final wordId = wordRes.first['id'] as int;
 
-    db.execute('DELETE FROM user_progress WHERE word_id = ?', [wordId]);
+    await db.delete('user_progress', where: 'word_id = ?', whereArgs: [wordId]);
   }
 
   Future<bool> isWordLearnt(String word) async {
     final db = await _dbHelper.database;
-    final result = db.select(
+    final result = await db.rawQuery(
       '''
       SELECT 1 FROM user_progress up
       JOIN words w ON up.word_id = w.id

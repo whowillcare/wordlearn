@@ -5,7 +5,6 @@ import '../data/game_levels.dart';
 import '../logic/game_bloc.dart';
 import '../logic/game_state.dart'; // Ensure state enum is visible
 import '../data/statistics_repository.dart';
-import '../data/ingestion_result.dart';
 import '../data/settings_repository.dart';
 import 'game_screen.dart';
 import 'settings_screen.dart';
@@ -17,8 +16,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 class HomeScreen extends StatefulWidget {
-  final IngestionResult? ingestionResult;
-  const HomeScreen({super.key, this.ingestionResult});
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -91,7 +89,7 @@ class _HomeScreenState extends State<HomeScreen>
 
     // Pages for Bottom Nav
     final List<Widget> pages = [
-      _HomeContent(ingestionResult: widget.ingestionResult),
+      _HomeContent(),
       const LibraryScreen(),
       _PlaceholderScreen(title: l10n.shop),
       const SettingsScreen(),
@@ -313,8 +311,7 @@ class _HomeScreenState extends State<HomeScreen>
 }
 
 class _HomeContent extends StatefulWidget {
-  final IngestionResult? ingestionResult;
-  const _HomeContent({this.ingestionResult});
+  const _HomeContent();
 
   @override
   State<_HomeContent> createState() => _HomeContentState();

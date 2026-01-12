@@ -3,9 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:path_provider/path_provider.dart';
 import 'data/word_repository.dart';
-import 'data/data_ingester.dart';
 import 'data/statistics_repository.dart';
-import 'data/ingestion_result.dart';
 import 'ui/home_screen.dart';
 
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -45,17 +43,12 @@ void main() async {
   final wordRepo = WordRepository();
   final statsRepo = await StatisticsRepository.init();
   final settingsRepo = await SettingsRepository.init();
-  final ingestionResult = await DataIngester(
-    wordRepo,
-    settingsRepo,
-  ).ingestData();
 
   runApp(
     MyApp(
       repository: wordRepo,
       statsRepository: statsRepo,
       settingsRepository: settingsRepo,
-      ingestionResult: ingestionResult,
     ),
   );
 }
@@ -64,14 +57,11 @@ class MyApp extends StatelessWidget {
   final WordRepository repository;
   final StatisticsRepository statsRepository;
   final SettingsRepository settingsRepository;
-  final IngestionResult ingestionResult;
-
   const MyApp({
     super.key,
     required this.repository,
     required this.statsRepository,
     required this.settingsRepository,
-    required this.ingestionResult,
   });
 
   @override
@@ -109,7 +99,7 @@ class MyApp extends StatelessWidget {
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
           useMaterial3: true,
         ),
-        home: HomeScreen(ingestionResult: ingestionResult),
+        home: const HomeScreen(),
       ),
     );
   }
