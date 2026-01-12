@@ -84,6 +84,15 @@ Future<void> _createSchema(Database db) async {
     );
   ''');
 
+  await db.execute('''
+    CREATE TABLE IF NOT EXISTS user_progress (
+      word_id INTEGER PRIMARY KEY,
+      status TEXT, -- 'Learnt', 'Mastered', etc.
+      next_review_date INTEGER,
+      FOREIGN KEY (word_id) REFERENCES words (id) ON DELETE CASCADE
+    );
+  ''');
+
   // Index for faster lookups
   await db.execute('CREATE INDEX IF NOT EXISTS idx_word_text ON words(text);');
   await db.execute(
@@ -108,7 +117,12 @@ Future<void> _ingestWordData(Database db) async {
   await db.transaction((txn) async {
     // Helper to insert word and link categories
     Future<void> insertWord(String wordRaw, List<String> categories) async {
-      String? word = wordRaw.toString().toLowerCase().trim();
+      // Replace underscore with space per user request
+      String? word = wordRaw
+          .toString()
+          .replaceAll('_', ' ')
+          .toLowerCase()
+          .trim();
       if (word.isEmpty) return;
 
       List<Map> res = await txn.query(
@@ -233,7 +247,12 @@ Future<void> _ingestThesaurus(Database db) async {
         if (line.trim().isEmpty) continue;
         try {
           final data = jsonDecode(line);
-          String word = data['word'].toString().toLowerCase().trim();
+          // Replace underscore with space per user request
+          String word = data['word']
+              .toString()
+              .replaceAll('_', ' ')
+              .toLowerCase()
+              .trim();
 
           int wordId;
           List<Map> res = await txn.query(
@@ -254,7 +273,22 @@ Future<void> _ingestThesaurus(Database db) async {
 
           String pos = data['pos'] ?? '';
           String defs = jsonEncode(data['desc'] ?? []);
-          String syns = jsonEncode(data['synonyms'] ?? []);
+
+          // Sanitize synonyms
+          List<dynamic> rawSyns = data['synonyms'] ?? [];
+          List<String> cleanSyns = [];
+
+          final RegExp oddPrefix = RegExp(r'^(\.|-|\d)+');
+
+          for (var s in rawSyns) {
+            String str = s.toString();
+            // Remove leading numbers, dots, dashes per user request
+            str = str.replaceFirst(oddPrefix, '');
+            // Also replace underscore with space just in case
+            str = str.replaceAll('_', ' ').trim();
+            if (str.isNotEmpty) cleanSyns.add(str);
+          }
+          String syns = jsonEncode(cleanSyns);
 
           await txn.insert('meanings', {
             'word_id': wordId,

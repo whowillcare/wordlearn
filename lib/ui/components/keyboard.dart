@@ -3,6 +3,7 @@ import '../../logic/game_state.dart';
 
 class Keyboard extends StatelessWidget {
   final bool allowSpecialChars;
+  final Set<String> visibleSpecialChars; // New parameter
   final Map<String, LetterStatus> letterStatus;
   final void Function(String) onKeyTap;
   final VoidCallback onDeleteTap;
@@ -15,12 +16,25 @@ class Keyboard extends StatelessWidget {
     required this.onDeleteTap,
     required this.onEnterTap,
     this.allowSpecialChars = false,
+    this.visibleSpecialChars = const {},
   });
 
   @override
   Widget build(BuildContext context) {
     const double keyHeight = 48;
     const double keySpacing = 4;
+
+    // Logic: Show if 'allowSpecialChars' is true OR if explicitly in 'visibleSpecialChars'
+    bool showHyphen = allowSpecialChars || visibleSpecialChars.contains('-');
+    bool showApostrophe =
+        allowSpecialChars || visibleSpecialChars.contains('\'');
+    // Note: Space key isn't standard in Wordle, but user asked for ' '.
+    // Usually mapped to a specific UI button or automatic?
+    // Wordle clones usually handle spaces by skipping or treating as special.
+    // Given the request, we'll add ' ' key if needed, or maybe just - and ' are enough for now.
+    // User mentioned: "_", "'", " " are the three possibilities.
+    // Underscore is converted to space. So we check for space.
+    bool showSpace = visibleSpecialChars.contains(' ');
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4.0),
@@ -37,13 +51,14 @@ class Keyboard extends StatelessWidget {
             ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
             keyHeight,
             keySpacing,
-            padding: 2.0, // Reduced padding for tighter fit
+            padding: 2.0,
           ),
           const SizedBox(height: keySpacing),
           _buildRow(
             [
-              if (allowSpecialChars) '-',
-              if (allowSpecialChars) '\'',
+              if (showHyphen) '-',
+              if (showApostrophe) '\'',
+              if (showSpace) ' ', // Represent space as ' ' or maybe an icon?
               'z',
               'x',
               'c',

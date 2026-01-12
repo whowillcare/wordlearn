@@ -185,6 +185,15 @@ class _GameScreenState extends State<GameScreen> {
                         ),
                       );
 
+                      // Calculate special chars needed for the specific target word
+                      final requiredSpecialChars = <String>{};
+                      if (state.targetWord.contains('-'))
+                        requiredSpecialChars.add('-');
+                      if (state.targetWord.contains('\''))
+                        requiredSpecialChars.add('\'');
+                      if (state.targetWord.contains(' '))
+                        requiredSpecialChars.add(' ');
+
                       final controlsSection = Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -215,6 +224,7 @@ class _GameScreenState extends State<GameScreen> {
                             Keyboard(
                               letterStatus: state.letterStatus,
                               allowSpecialChars: settings.isSpecialCharsAllowed,
+                              visibleSpecialChars: requiredSpecialChars,
                               onKeyTap: (letter) {
                                 context.read<GameBloc>().add(
                                   GuessEntered(letter),
