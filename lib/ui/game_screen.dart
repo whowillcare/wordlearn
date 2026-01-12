@@ -180,7 +180,9 @@ class _GameScreenState extends State<GameScreen> {
                             guesses: state.guesses,
                             currentGuess: state.currentGuess,
                             targetWord: state.targetWord,
-                            maxAttempts: state.level?.attempts ?? 6,
+                            maxAttempts:
+                                (state.level?.attempts ?? 6) +
+                                state.bonusAttempts,
                           ),
                         ),
                       );

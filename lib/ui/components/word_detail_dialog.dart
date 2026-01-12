@@ -24,23 +24,33 @@ class _WordDetailDialogState extends State<WordDetailDialog> {
   }
 
   Future<void> _checkStatus() async {
-    final repo = context.read<WordRepository>();
-    final isLearnt = await repo.isWordLearnt(widget.word);
-    if (mounted) {
-      setState(() {
-        _isLearnt = isLearnt;
-        _isLoading = false;
-      });
+    try {
+      final repo = context.read<WordRepository>();
+      final isLearnt = await repo.isWordLearnt(widget.word);
+      if (mounted) {
+        setState(() {
+          _isLearnt = isLearnt;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error checking word status: $e');
+      if (mounted) {
+        setState(() {
+          _isLearnt = false; // Default to false
+          _isLoading = false;
+        });
+      }
     }
   }
 
   Future<void> _toggleStatus() async {
-    if (_isLearnt == null) return;
+    bool currentStatus = _isLearnt ?? false;
     setState(() => _isLoading = true);
 
     final repo = context.read<WordRepository>();
     try {
-      if (_isLearnt!) {
+      if (currentStatus) {
         await repo.deleteLearntWord(widget.word);
         if (mounted) setState(() => _isLearnt = false);
       } else {
@@ -50,8 +60,12 @@ class _WordDetailDialogState extends State<WordDetailDialog> {
         if (mounted) setState(() => _isLearnt = true);
       }
     } catch (e) {
-      // Handle error
-      print(e);
+      print('Error toggling status: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error updating library: $e')));
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
