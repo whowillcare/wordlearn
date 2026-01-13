@@ -59,6 +59,7 @@ dependencies:
   share_plus: ^7.2.1
   screenshot: ^3.0.0
   wakelock_plus: ^1.4.0
+  rxdart: ^0.28.0
 
 dev_dependencies:
   sqflite_common_ffi: ^2.3.4

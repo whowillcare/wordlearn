@@ -375,7 +375,28 @@ class GameBloc extends HydratedBloc<GameEvent, GameState> {
       return;
     }
 
-    final index = unrevealedIndices[_random.nextInt(unrevealedIndices.length)];
+    // Filter out indices that the user has already guessed correctly
+    final unknownIndices = unrevealedIndices.where((i) {
+      for (final guess in state.guesses) {
+        if (guess.length > i && guess[i] == target[i]) {
+          return false; // Already found this letter at this position
+        }
+      }
+      return true;
+    }).toList();
+
+    // Prefer unknown indices if available, otherwise fallback to any unrevealed
+    final candidates = unknownIndices.isNotEmpty
+        ? unknownIndices
+        : unrevealedIndices;
+
+    if (candidates.isEmpty) {
+      // Should be covered by unrevealedIndices.isEmpty, but safety check
+      emit(state.copyWith(errorMessage: 'All letters known!'));
+      return;
+    }
+
+    final index = candidates[_random.nextInt(candidates.length)];
     final newRevealed = Set<int>.from(state.revealedIndices)..add(index);
 
     _playSuccessSound();

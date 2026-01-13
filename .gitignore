@@ -48,3 +48,5 @@ lib/firebase_options.dart
 build_db_output.txt
 ios/Podfile.lock
 macos/Podfile.lock
+pubspec.lock
+pubspec.lock

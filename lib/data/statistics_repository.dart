@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:rxdart/rxdart.dart';
 import 'game_score.dart';
 
 class StatisticsRepository {
@@ -10,14 +11,20 @@ class StatisticsRepository {
   static const _keyDailyStreak = 'daily_streak';
   SharedPreferences? _prefs;
 
-  final _pointsController = StreamController<int>.broadcast();
+  final _pointsController = BehaviorSubject<int>.seeded(0);
   Stream<int> get pointsStream => _pointsController.stream;
+  int get currentPoints => _pointsController.value;
 
   static Future<StatisticsRepository> init() async {
     final repo = StatisticsRepository();
     repo._prefs = await SharedPreferences.getInstance();
-    // Emit initial value
-    repo.getTotalPoints().then((p) => repo._pointsController.add(p));
+    // Load initial value
+    final points = repo._prefs!.getInt(_keyPoints) ?? 100;
+    repo._pointsController.add(points);
+    // If it was null (new user), save the default
+    if (!repo._prefs!.containsKey(_keyPoints)) {
+      await repo._prefs!.setInt(_keyPoints, 100);
+    }
     return repo;
   }
 
@@ -48,8 +55,10 @@ class StatisticsRepository {
       return 100;
     }
     final p = _prefs!.getInt(_keyPoints) ?? 0;
-    // We don't necessarily need to emit here as it is a getter, but good for sync.
-    // _pointsController.add(p);
+    // Always sync the behavior subject to ensure latest source of truth
+    if (_pointsController.value != p) {
+      _pointsController.add(p);
+    }
     return p;
   }
 
