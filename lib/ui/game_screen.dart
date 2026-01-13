@@ -13,13 +13,14 @@ import 'package:screenshot/screenshot.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 
+import 'package:wakelock_plus/wakelock_plus.dart';
+
 import 'components/guess_grid.dart';
 import 'components/keyboard.dart';
 import 'components/interstitial_ad_controller.dart';
 import 'components/banner_ad_widget.dart';
 import 'components/word_detail_dialog.dart';
 import 'components/rewarded_ad_controller.dart';
-import '../l10n/app_localizations.dart';
 import '../l10n/app_localizations.dart';
 import '../utils/category_utils.dart';
 import 'components/points_action_dialog.dart';
@@ -47,6 +48,7 @@ class _GameScreenState extends State<GameScreen> {
   late InterstitialAdController _adController;
   late RewardedAdController _rewardedAdController;
   final ScreenshotController _screenshotController = ScreenshotController();
+  bool _isWakelockEnabled = true;
 
   @override
   void initState() {
@@ -57,7 +59,12 @@ class _GameScreenState extends State<GameScreen> {
     _adController = InterstitialAdController();
     _adController.loadAd();
     _rewardedAdController = RewardedAdController();
+    _rewardedAdController = RewardedAdController();
     _rewardedAdController.loadAd();
+
+    // Enable Wakelock by default (Screensaver Disabled)
+    WakelockPlus.enable();
+
     // If NOT resuming, start a new game
     if (!widget.isResuming) {
       context.read<GameBloc>().add(
@@ -75,6 +82,7 @@ class _GameScreenState extends State<GameScreen> {
     _confettiController.dispose();
     _adController.dispose();
     _rewardedAdController.dispose();
+    WakelockPlus.disable();
     super.dispose();
   }
 
@@ -93,9 +101,9 @@ class _GameScreenState extends State<GameScreen> {
           _rewardedAdController.showAd(
             onUserEarnedReward: (amount) async {
               await context.read<StatisticsRepository>().addPoints(amount);
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text("Earned $amount Points!")));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text("Earned $amount Diamonds!")),
+              );
               _rewardedAdController.loadAd();
             },
           );
@@ -104,6 +112,21 @@ class _GameScreenState extends State<GameScreen> {
           // Return specific signal to home screen
           Navigator.of(context).pop('GO_TO_SHOP');
         },
+      ),
+    );
+  }
+
+  void _toggleWakelock() {
+    setState(() {
+      _isWakelockEnabled = !_isWakelockEnabled;
+    });
+    WakelockPlus.toggle(enable: _isWakelockEnabled);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _isWakelockEnabled ? "Screen will stay ON" : "Screen sleep allowed",
+        ),
+        duration: const Duration(seconds: 1),
       ),
     );
   }
@@ -174,6 +197,16 @@ class _GameScreenState extends State<GameScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            icon: Icon(
+              _isWakelockEnabled
+                  ? Icons.wb_incandescent
+                  : Icons.wb_incandescent_outlined,
+              color: _isWakelockEnabled ? Colors.amber : Colors.grey,
+            ),
+            tooltip: _isWakelockEnabled ? 'Screen Stays ON' : 'Allow Sleep',
+            onPressed: _toggleWakelock,
+          ),
           IconButton(
             icon: const Icon(Icons.share, color: Colors.deepPurple),
             tooltip: 'Ask for Help',

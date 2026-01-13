@@ -134,13 +134,32 @@ class _GuessRowState extends State<_GuessRow> {
 
   @override
   Widget build(BuildContext context) {
-    // Compact Row Logic: Only for submitted words > 5 letters
-    final bool useCompactMode = widget.isSubmitted && widget.targetLength > 5;
+    // Compact Row Logic
+    // Submitted & > 5: Very small (existing logic, tweaked)
+    // Active & > 5: Small (new dynamic sizing)
+    final bool isLongWord = widget.targetLength > 5;
+    final bool useCompactSubmitted = widget.isSubmitted && isLongWord;
+    final bool useCompactActive = !widget.isSubmitted && isLongWord;
 
-    // Determine style based on state
-    final double bubbleSize = useCompactMode ? 34.0 : 50.0;
-    final double padding = useCompactMode ? 2.0 : 6.0;
-    final double fontSize = useCompactMode ? 18.0 : 24.0;
+    late double bubbleSize;
+    late double padding;
+    late double fontSize;
+
+    if (useCompactSubmitted) {
+      bubbleSize = 34.0;
+      padding = 2.0;
+      fontSize = 18.0;
+    } else if (useCompactActive) {
+      // Dynamic sizing for active long words to reduce scroll
+      bubbleSize = 40.0;
+      padding = 3.0;
+      fontSize = 20.0;
+    } else {
+      // Standard size
+      bubbleSize = 50.0;
+      padding = 6.0;
+      fontSize = 24.0;
+    }
 
     // Pre-calculate colors if submitted
     List<Gradient?> gradients = List.filled(widget.targetLength, null);
@@ -193,7 +212,7 @@ class _GuessRowState extends State<_GuessRow> {
       );
     });
 
-    if (useCompactMode) {
+    if (useCompactSubmitted) {
       // Compact View: FittedBox ensures it scales down to fit screen width without scrolling
       return Center(
         child: FittedBox(
@@ -206,14 +225,31 @@ class _GuessRowState extends State<_GuessRow> {
         ),
       );
     } else {
-      // Active/Standard View: Scrollable
+      // Active/Standard View: Scrollable with Fade Indicators
       return Center(
-        child: SingleChildScrollView(
-          controller: _scrollController,
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: children,
+        child: ShaderMask(
+          shaderCallback: (Rect bounds) {
+            return const LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                Colors.purple,
+                Colors.transparent,
+                Colors.transparent,
+                Colors.purple,
+              ],
+              stops: [0.0, 0.05, 0.95, 1.0],
+            ).createShader(bounds);
+          },
+          blendMode: BlendMode.dstOut,
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: children,
+            ),
           ),
         ),
       );
