@@ -164,6 +164,10 @@ class _GameScreenState extends State<GameScreen> {
                     Text(
                       "Word Length: ${widget.level.minLength} - ${widget.level.maxLength ?? '+'} letters",
                     ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Word Candidates: ${context.read<GameBloc>().state.categoryWordCount ?? '?'} words",
+                    ),
                   ],
                 ),
                 actions: [
@@ -197,98 +201,112 @@ class _GameScreenState extends State<GameScreen> {
           ),
         ),
         actions: [
-          IconButton(
-            icon: Icon(
-              _isWakelockEnabled
-                  ? Icons.wb_incandescent
-                  : Icons.wb_incandescent_outlined,
-              color: _isWakelockEnabled ? Colors.amber : Colors.grey,
+          // Score Display
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: StreamBuilder<int>(
+              stream: context.read<StatisticsRepository>().pointsStream,
+              builder: (context, snapshot) {
+                final points = snapshot.data ?? 0;
+                return GestureDetector(
+                  onTap: () => _showPointsActionDialog(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.amber,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black12,
+                          blurRadius: 2,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          "$points",
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.deepPurple,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.diamond,
+                          size: 16,
+                          color: Colors.deepPurple,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
-            tooltip: _isWakelockEnabled ? 'Screen Stays ON' : 'Allow Sleep',
-            onPressed: _toggleWakelock,
           ),
           IconButton(
             icon: const Icon(Icons.share, color: Colors.deepPurple),
             tooltip: 'Ask for Help',
             onPressed: () => _shareGameplay(),
           ),
-          // Score Display
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: Row(
-              children: [
-                // Points
-                StreamBuilder<int>(
-                  stream: context.read<StatisticsRepository>().pointsStream,
-                  builder: (context, snapshot) {
-                    final points = snapshot.data ?? 0;
-                    return GestureDetector(
-                      onTap: () => _showPointsActionDialog(context),
-                      child: Container(
-                        margin: const EdgeInsets.only(right: 8),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.amber,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black12,
-                              blurRadius: 2,
-                              offset: Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              "$points",
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.deepPurple,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            const Icon(
-                              Icons.diamond,
-                              size: 16,
-                              color: Colors.deepPurple,
-                            ),
-                          ],
-                        ),
+          // More Actions Menu
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: Colors.deepPurple),
+            onSelected: (value) {
+              if (value == 'toggle_wakelock') {
+                _toggleWakelock();
+              }
+            },
+            itemBuilder: (BuildContext context) {
+              final state = context.read<GameBloc>().state;
+              return [
+                // Word Count Info
+                PopupMenuItem<String>(
+                  enabled: false, // Info only
+                  value: 'word_count',
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.format_list_numbered,
+                        color: Colors.grey,
                       ),
-                    );
-                  },
-                ),
-                // Word Count (Keep existing logic or simplify)
-                BlocBuilder<GameBloc, GameState>(
-                  builder: (context, state) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
+                      const SizedBox(width: 8),
+                      Text(
                         "${state.categoryWordCount ?? '?'} Words",
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.deepPurple,
-                        ),
+                        style: const TextStyle(color: Colors.black87),
                       ),
-                    );
-                  },
+                    ],
+                  ),
                 ),
-              ],
-            ),
+                const PopupMenuDivider(),
+                // Screensaver Toggle
+                PopupMenuItem<String>(
+                  value: 'toggle_wakelock',
+                  child: Row(
+                    children: [
+                      Icon(
+                        _isWakelockEnabled
+                            ? Icons.wb_incandescent
+                            : Icons.wb_incandescent_outlined,
+                        color: _isWakelockEnabled ? Colors.amber : Colors.grey,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _isWakelockEnabled
+                            ? "Keep Screen ON"
+                            : "Allow Screen Sleep",
+                      ),
+                    ],
+                  ),
+                ),
+              ];
+            },
           ),
         ],
       ),
