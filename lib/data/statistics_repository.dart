@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'game_score.dart';
 
@@ -9,10 +10,19 @@ class StatisticsRepository {
   static const _keyDailyStreak = 'daily_streak';
   SharedPreferences? _prefs;
 
+  final _pointsController = StreamController<int>.broadcast();
+  Stream<int> get pointsStream => _pointsController.stream;
+
   static Future<StatisticsRepository> init() async {
     final repo = StatisticsRepository();
     repo._prefs = await SharedPreferences.getInstance();
+    // Emit initial value
+    repo.getTotalPoints().then((p) => repo._pointsController.add(p));
     return repo;
+  }
+
+  void dispose() {
+    _pointsController.close();
   }
 
   Future<GameScore> getScore(String levelKey) async {
@@ -34,16 +44,22 @@ class StatisticsRepository {
     if (!_prefs!.containsKey(_keyPoints)) {
       // New user bonus
       await _prefs!.setInt(_keyPoints, 100);
+      _pointsController.add(100);
       return 100;
     }
-    return _prefs!.getInt(_keyPoints) ?? 0;
+    final p = _prefs!.getInt(_keyPoints) ?? 0;
+    // We don't necessarily need to emit here as it is a getter, but good for sync.
+    // _pointsController.add(p);
+    return p;
   }
 
   Future<void> addPoints(int amount) async {
     // Force init check inside getTotalPoints is enough but let's be safe
     if (_prefs == null) await init();
     final current = await getTotalPoints();
-    await _prefs!.setInt(_keyPoints, current + amount);
+    final newValue = current + amount;
+    await _prefs!.setInt(_keyPoints, newValue);
+    _pointsController.add(newValue);
   }
 
   // Daily Bonus Logic
@@ -81,7 +97,7 @@ class StatisticsRepository {
     // Save
     await _prefs!.setString(_keyLastLogin, now.toIso8601String());
     await _prefs!.setInt(_keyDailyStreak, streak);
-    await addPoints(reward);
+    await addPoints(reward); // adds to stream
 
     return {'claimed': false, 'streak': streak, 'reward': reward};
   }
@@ -90,7 +106,9 @@ class StatisticsRepository {
     if (_prefs == null) await init();
     final current = await getTotalPoints();
     if (current >= amount) {
-      await _prefs!.setInt(_keyPoints, current - amount);
+      final newValue = current - amount;
+      await _prefs!.setInt(_keyPoints, newValue);
+      _pointsController.add(newValue);
       return true;
     }
     return false;

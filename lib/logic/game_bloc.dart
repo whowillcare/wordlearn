@@ -413,7 +413,12 @@ class GameBloc extends HydratedBloc<GameEvent, GameState> {
     }
 
     _playSuccessSound();
-    emit(state.copyWith(hintMessage: msg));
+    emit(
+      state.copyWith(
+        hintMessage: msg,
+        isCategoryRevealed: true, // Ensure hint box is visible
+      ),
+    );
   }
 
   void _playErrorSound() {

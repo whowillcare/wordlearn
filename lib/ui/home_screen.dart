@@ -10,6 +10,8 @@ import '../data/word_repository.dart';
 import 'game_screen.dart';
 import 'settings_screen.dart';
 import 'library_screen.dart';
+import 'components/points_action_dialog.dart';
+import 'components/rewarded_ad_controller.dart';
 import '../l10n/app_localizations.dart';
 import '../utils/category_utils.dart';
 
@@ -27,6 +29,7 @@ class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
   late AnimationController _gradientController;
+  late RewardedAdController _rewardedAdController;
 
   @override
   void initState() {
@@ -35,8 +38,36 @@ class _HomeScreenState extends State<HomeScreen>
       vsync: this,
       duration: const Duration(seconds: 10),
     )..repeat(reverse: true);
+
+    _rewardedAdController = RewardedAdController();
+    _rewardedAdController.loadAd();
+
     // Check Daily Bonus
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkDailyBonus());
+  }
+
+  void _showPointsActionDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => PointsActionDialog(
+        onWatchAd: () {
+          _rewardedAdController.showAd(
+            onUserEarnedReward: (amount) async {
+              await context.read<StatisticsRepository>().addPoints(amount);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text("Earned $amount Diamonds!")),
+              );
+              _rewardedAdController.loadAd(); // Preload next
+            },
+          );
+        },
+        onGoToShop: () {
+          setState(() {
+            _selectedIndex = 2; // Switch to Shop tab
+          });
+        },
+      ),
+    );
   }
 
   Future<void> _checkDailyBonus() async {
@@ -58,7 +89,7 @@ class _HomeScreenState extends State<HomeScreen>
               Text("You maintained a $streak day streak!"),
               const SizedBox(height: 10),
               Text(
-                "+$reward Coins",
+                "+$reward Diamonds",
                 style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -90,7 +121,13 @@ class _HomeScreenState extends State<HomeScreen>
 
     // Pages for Bottom Nav
     final List<Widget> pages = [
-      _HomeContent(),
+      _HomeContent(
+        onGoToShop: () {
+          setState(() {
+            _selectedIndex = 2;
+          });
+        },
+      ),
       const LibraryScreen(),
       _PlaceholderScreen(title: l10n.shop),
       const SettingsScreen(),
@@ -213,9 +250,9 @@ class _HomeScreenState extends State<HomeScreen>
     // Connect to real points
     final statsRepo = context.watch<StatisticsRepository>();
 
-    return FutureBuilder<int>(
-      future: statsRepo.getTotalPoints(),
-      initialData: 0,
+    return StreamBuilder<int>(
+      // Changed from FutureBuilder
+      stream: statsRepo.pointsStream,
       builder: (context, snapshot) {
         final points = snapshot.data ?? 0;
         const isVip = true; // Placeholder
@@ -283,23 +320,27 @@ class _HomeScreenState extends State<HomeScreen>
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: Colors.white.withOpacity(0.1)),
                   ),
-                  child: Row(
-                    children: [
-                      Text(
-                        "$points",
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14,
-                          color: Colors.white,
+                  child: GestureDetector(
+                    // Added interaction
+                    onTap: () => _showPointsActionDialog(context),
+                    child: Row(
+                      children: [
+                        Text(
+                          "$points",
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                            color: Colors.white,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(
-                        Icons.diamond,
-                        size: 16,
-                        color: Colors.cyanAccent,
-                      ),
-                    ],
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.diamond,
+                          size: 16,
+                          color: Colors.cyanAccent,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -312,7 +353,8 @@ class _HomeScreenState extends State<HomeScreen>
 }
 
 class _HomeContent extends StatefulWidget {
-  const _HomeContent();
+  final VoidCallback onGoToShop;
+  const _HomeContent({required this.onGoToShop});
 
   @override
   State<_HomeContent> createState() => _HomeContentState();
@@ -354,7 +396,10 @@ class _HomeContentState extends State<_HomeContent> {
     ).push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
   }
 
-  void _startGame(BuildContext context, {bool isResuming = false}) {
+  Future<void> _startGame(
+    BuildContext context, {
+    bool isResuming = false,
+  }) async {
     final settings = context.read<SettingsRepository>();
     final categories = settings.defaultCategories;
     final levelKey = settings.gameLevel;
@@ -366,7 +411,7 @@ class _HomeContentState extends State<_HomeContent> {
     // If starting NEW game, we might want to confirm if one exists?
     // For now, straightforward push. GameScreen will handle the "Start" event if !isResuming.
 
-    Navigator.of(context).push(
+    final result = await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => GameScreen(
           categories: categories.isEmpty ? ['all'] : categories,
@@ -375,6 +420,11 @@ class _HomeContentState extends State<_HomeContent> {
         ),
       ),
     );
+
+    // Handle navigation request from GameScreen
+    if (result == 'GO_TO_SHOP' && mounted) {
+      widget.onGoToShop();
+    }
   }
 
   void _launchDailyGame(BuildContext context, String word) {

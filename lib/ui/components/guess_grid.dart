@@ -7,6 +7,7 @@ class GuessGrid extends StatelessWidget {
   final String currentGuess;
   final String targetWord;
   final int maxAttempts;
+  final Set<int> revealedIndices;
 
   const GuessGrid({
     super.key,
@@ -14,6 +15,7 @@ class GuessGrid extends StatelessWidget {
     required this.currentGuess,
     required this.targetWord,
     required this.maxAttempts,
+    this.revealedIndices = const {},
   });
 
   @override
@@ -49,6 +51,7 @@ class GuessGrid extends StatelessWidget {
               targetWord: targetWord,
               isSubmitted: isSubmitted,
               isCurrent: isCurrent,
+              revealedIndices: revealedIndices,
             ),
           ),
         );
@@ -63,6 +66,7 @@ class _GuessRow extends StatefulWidget {
   final String targetWord;
   final bool isSubmitted;
   final bool isCurrent;
+  final Set<int> revealedIndices;
 
   const _GuessRow({
     Key? key,
@@ -71,6 +75,7 @@ class _GuessRow extends StatefulWidget {
     required this.targetWord,
     required this.isSubmitted,
     required this.isCurrent,
+    required this.revealedIndices,
   }) : super(key: key);
 
   @override
@@ -160,6 +165,9 @@ class _GuessRowState extends State<_GuessRow> {
       String char = '';
       if (index < widget.word.length) {
         char = widget.word[index];
+      } else if (!widget.isSubmitted &&
+          widget.revealedIndices.contains(index)) {
+        char = widget.targetWord[index];
       }
 
       // Cursor logic: Only show styled cursor on active row at current index
@@ -177,6 +185,10 @@ class _GuessRowState extends State<_GuessRow> {
           isCursor,
           shadows,
           fontSize,
+          isRevealedHint:
+              !widget.isSubmitted &&
+              index >= widget.word.length &&
+              widget.revealedIndices.contains(index),
         ),
       );
     });
@@ -260,8 +272,36 @@ class _GuessRowState extends State<_GuessRow> {
     Color textColor,
     bool isCursor,
     List<BoxShadow> shadows,
-    double fontSize,
-  ) {
+    double fontSize, {
+    bool isRevealedHint = false,
+  }) {
+    // Reveal Hint State
+    if (isRevealedHint) {
+      return Container(
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.blue.shade50,
+          border: Border.all(color: Colors.blueAccent, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.blue.withOpacity(0.2),
+              blurRadius: 4,
+              spreadRadius: 1,
+            ),
+          ],
+        ),
+        child: Text(
+          char.toUpperCase(),
+          style: TextStyle(
+            fontSize: fontSize,
+            fontWeight: FontWeight.bold,
+            color: Colors.blueAccent,
+          ),
+        ),
+      );
+    }
+
     // Empty/Typing state
     if (!isSubmitted && gradient == null) {
       if (char.isNotEmpty) {

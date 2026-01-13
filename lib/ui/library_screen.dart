@@ -5,6 +5,7 @@ import '../../logic/library_bloc.dart';
 import 'package:intl/intl.dart';
 import 'word_detail_screen.dart';
 import '../l10n/app_localizations.dart';
+import '../utils/category_utils.dart';
 
 class LibraryScreen extends StatelessWidget {
   const LibraryScreen({super.key});
@@ -90,7 +91,10 @@ class LibraryView extends StatelessWidget {
                       child: Text(l10n.allCategories),
                     ),
                     ...categories.map(
-                      (c) => PopupMenuItem(value: c, child: Text(c!)),
+                      (c) => PopupMenuItem(
+                        value: c,
+                        child: Text(CategoryUtils.formatName(c!)),
+                      ),
                     ),
                   ];
                 },
@@ -203,7 +207,7 @@ class LibraryView extends StatelessWidget {
                       ),
                     ),
                     subtitle: Text(
-                      '$category • ${DateFormat.yMMMd().format(dateAdded)}',
+                      '${CategoryUtils.formatName(category)} • ${DateFormat.yMMMd().format(dateAdded)}',
                       style: TextStyle(color: Colors.grey[600], fontSize: 12),
                     ),
                     onTap: () {

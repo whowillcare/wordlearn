@@ -4,6 +4,7 @@ import 'package:confetti/confetti.dart';
 import '../data/game_levels.dart';
 import '../logic/game_bloc.dart';
 import '../logic/game_state.dart';
+import '../data/statistics_repository.dart';
 import '../data/settings_repository.dart';
 import '../data/word_repository.dart';
 
@@ -19,7 +20,9 @@ import 'components/banner_ad_widget.dart';
 import 'components/word_detail_dialog.dart';
 import 'components/rewarded_ad_controller.dart';
 import '../l10n/app_localizations.dart';
+import '../l10n/app_localizations.dart';
 import '../utils/category_utils.dart';
+import 'components/points_action_dialog.dart';
 
 class GameScreen extends StatefulWidget {
   final List<String> categories;
@@ -82,6 +85,29 @@ class _GameScreenState extends State<GameScreen> {
     return '${widget.categories.length} Categories';
   }
 
+  void _showPointsActionDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => PointsActionDialog(
+        onWatchAd: () {
+          _rewardedAdController.showAd(
+            onUserEarnedReward: (amount) async {
+              await context.read<StatisticsRepository>().addPoints(amount);
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text("Earned $amount Points!")));
+              _rewardedAdController.loadAd();
+            },
+          );
+        },
+        onGoToShop: () {
+          // Return specific signal to home screen
+          Navigator.of(context).pop('GO_TO_SHOP');
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -95,25 +121,57 @@ class _GameScreenState extends State<GameScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         centerTitle: true,
-        title: Column(
-          children: [
-            Text(
-              _getCategoryTitle(context).toUpperCase(),
-              style: const TextStyle(
-                color: Colors.deepPurple,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                letterSpacing: 1.2,
+        title: GestureDetector(
+          onTap: () {
+            showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text(
+                  "Game Configuration",
+                  style: TextStyle(color: Colors.deepPurple),
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Categories: ${_getCategoryTitle(context)}"),
+                    const SizedBox(height: 8),
+                    Text("Level: ${widget.level.name}"),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Word Length: ${widget.level.minLength} - ${widget.level.maxLength ?? '+'} letters",
+                    ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text("OK"),
+                  ),
+                ],
               ),
-            ),
-            Text(
-              widget.level.key.toUpperCase(),
-              style: const TextStyle(
-                color: Colors.deepPurpleAccent,
-                fontSize: 10,
+            );
+          },
+          child: Column(
+            children: [
+              Text(
+                _getCategoryTitle(context).toUpperCase(),
+                style: const TextStyle(
+                  color: Colors.deepPurple,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  letterSpacing: 1.2,
+                ),
               ),
-            ),
-          ],
+              Text(
+                widget.level.key.toUpperCase(),
+                style: const TextStyle(
+                  color: Colors.deepPurpleAccent,
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           IconButton(
@@ -124,28 +182,79 @@ class _GameScreenState extends State<GameScreen> {
           // Score Display
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
-            child: BlocBuilder<GameBloc, GameState>(
-              builder: (context, state) {
-                // Placeholder for score if exist in state, else standard level info
-                return Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    "${state.categoryWordCount ?? '?'} Words",
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.deepPurple,
-                    ),
-                  ),
-                );
-              },
+            child: Row(
+              children: [
+                // Points
+                StreamBuilder<int>(
+                  stream: context.read<StatisticsRepository>().pointsStream,
+                  builder: (context, snapshot) {
+                    final points = snapshot.data ?? 0;
+                    return GestureDetector(
+                      onTap: () => _showPointsActionDialog(context),
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.amber,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black12,
+                              blurRadius: 2,
+                              offset: Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              "$points",
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.deepPurple,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(
+                              Icons.diamond,
+                              size: 16,
+                              color: Colors.deepPurple,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                // Word Count (Keep existing logic or simplify)
+                BlocBuilder<GameBloc, GameState>(
+                  builder: (context, state) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        "${state.categoryWordCount ?? '?'} Words",
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.deepPurple,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
           ),
         ],
@@ -159,6 +268,11 @@ class _GameScreenState extends State<GameScreen> {
               _adController.showAd();
               _confettiController.play();
               _showVictoryDialog(context, state);
+            } else if (state.errorMessage != null &&
+                state.errorMessage!.contains('Not enough points')) {
+              // Intercept specific point errors
+              _showPointsActionDialog(context);
+              // TODO: Ideally verify if we need to clear error here or if Bloc does it
             } else if (state.status == GameStatus.lost) {
               _adController.showAd();
               // Show Defeat/Revive Dialog
@@ -190,6 +304,7 @@ class _GameScreenState extends State<GameScreen> {
                             maxAttempts:
                                 (state.level?.attempts ?? 6) +
                                 state.bonusAttempts,
+                            revealedIndices: state.revealedIndices,
                           ),
                         ),
                       );
