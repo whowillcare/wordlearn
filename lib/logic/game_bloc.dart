@@ -126,18 +126,23 @@ class GameBloc extends HydratedBloc<GameEvent, GameState> {
         allowSpecialChars: allowSpecial,
       );
 
-      if (words.isEmpty) {
-        emit(
-          state.copyWith(
-            status: GameStatus.lost,
-            errorMessage:
-                'No words found for categories "${event.categories.join(', ')}" with length ${event.level.minLength}-${event.level.maxLength}',
-          ),
-        );
-        return;
+      String target;
+      if (event.targetWord != null) {
+        target = event.targetWord!.toLowerCase();
+      } else {
+        if (words.isEmpty) {
+          emit(
+            state.copyWith(
+              status: GameStatus.lost,
+              errorMessage:
+                  'No words found for categories "${event.categories.join(', ')}" with length ${event.level.minLength}-${event.level.maxLength}',
+            ),
+          );
+          return;
+        }
+        target = words[_random.nextInt(words.length)].toLowerCase();
       }
 
-      final target = words[_random.nextInt(words.length)].toLowerCase();
       print('Target word selected: $target');
 
       emit(
@@ -341,123 +346,88 @@ class GameBloc extends HydratedBloc<GameEvent, GameState> {
   ) async {
     if (state.status != GameStatus.playing) return;
 
-    final hintLevel = state.hintLevel;
-    final length = state.targetWord.length;
-    int cost = 0;
-    bool canUse = false;
-    String? categoryToReveal;
-    int lettersToReveal = 0;
-
-    // Determine next hint action based on current level
-    if (hintLevel == 0) {
-      // Tier 1: Category (Always available)
-      cost = 10;
-      canUse = true;
-    } else if (hintLevel == 1) {
-      // Tier 2: 1 Letter (Req length >= 5)
-      if (length >= 5) {
-        cost = 25;
-        canUse = true;
-        lettersToReveal = 1;
-      } else {
-        // Skip Tier 2 if word too short, treat as Tier 3 logic but cost for letter
-        cost = 25;
-        canUse = true;
-        lettersToReveal = 1;
-      }
-    } else if (hintLevel == 2) {
-      // Tier 3: 2 Letters (Req length > 8)
-      if (length > 8) {
-        cost = 50;
-        canUse = true;
-        lettersToReveal = 2;
-      } else {
-        // Skip Tier 3
-        cost =
-            25; // Revert to single letter cost if we skipped multi-letter tier
-        canUse = true;
-        lettersToReveal = 1;
-      }
-    } else {
-      // Tier 4+: Final Hint (1 Letter)
-      cost = 50;
-      canUse = true;
-      lettersToReveal = 1;
+    if (event.type == HintType.letter) {
+      await _handleLetterHint(emit);
+    } else if (event.type == HintType.synonym) {
+      await _handleSynonymHint(emit);
     }
+  }
 
-    // Check Points
+  Future<void> _handleLetterHint(Emitter<GameState> emit) async {
+    const cost = 10;
     final hasPoints = await _statsRepository.deductPoints(cost);
     if (!hasPoints) {
-      if (_settingsRepository.isSoundEnabled) {
-        try {
-          await _audioPlayer.play(AssetSource('sounds/error.wav'));
-        } catch (_) {}
-      }
-      emit(state.copyWith(errorMessage: 'Not enough points! Need $cost avg.'));
+      _playErrorSound();
+      emit(state.copyWith(errorMessage: 'Not enough points! Need $cost.'));
       return;
     }
 
-    // Apply Hint
-    if (hintLevel == 0) {
-      // Tier 1: Reveal All Valid Categories
-      final allCats = await _repository.getWordCategories(state.targetWord);
-
-      // Filter out actively selected categories to show "hidden" context
-      // If user selected 'all', then any category is technically 'selected' but useful context.
-      // If user selected specific cat (e.g. 'animals'), we should show others if exist.
-
-      final visibleCats = state.categories.contains('all')
-          ? <String>[]
-          : state.categories;
-
-      final newContextCats = allCats
-          .where((c) => !visibleCats.contains(c))
-          .toList();
-
-      String msg;
-      if (newContextCats.isNotEmpty) {
-        msg = "Also found in: ${newContextCats.join(', ')}";
-      } else {
-        // If it's only in the one they are playing, allow it to just say that.
-        msg = "Only found in: ${allCats.join(', ')}";
+    final target = state.targetWord;
+    final unrevealedIndices = <int>[];
+    for (int i = 0; i < target.length; i++) {
+      if (!state.revealedIndices.contains(i)) {
+        unrevealedIndices.add(i);
       }
-
-      emit(
-        state.copyWith(
-          hintLevel: 1,
-          isCategoryRevealed: true,
-          hintMessage: msg,
-        ),
-      );
-    } else {
-      // Reveal Letters
-      final target = state.targetWord;
-      final unrevealedIndices = <int>[];
-      for (int i = 0; i < target.length; i++) {
-        if (!state.revealedIndices.contains(i)) {
-          unrevealedIndices.add(i);
-        }
-      }
-
-      var newRevealed = Set<int>.from(state.revealedIndices);
-
-      for (int k = 0; k < lettersToReveal; k++) {
-        if (unrevealedIndices.isNotEmpty) {
-          final index =
-              unrevealedIndices[_random.nextInt(unrevealedIndices.length)];
-          newRevealed.add(index);
-          unrevealedIndices.remove(index);
-        }
-      }
-
-      emit(
-        state.copyWith(hintLevel: hintLevel + 1, revealedIndices: newRevealed),
-      );
     }
 
+    if (unrevealedIndices.isEmpty) {
+      emit(state.copyWith(errorMessage: 'All letters revealed!'));
+      return;
+    }
+
+    final index = unrevealedIndices[_random.nextInt(unrevealedIndices.length)];
+    final newRevealed = Set<int>.from(state.revealedIndices)..add(index);
+
+    _playSuccessSound();
+    emit(state.copyWith(revealedIndices: newRevealed));
+  }
+
+  Future<void> _handleSynonymHint(Emitter<GameState> emit) async {
+    const cost = 20;
+
+    // Check if already used? Maybe allowed multiple times if message lost?
+    // Usually hints are one-time per game or per request.
+    // Let's allow request.
+
+    final hasPoints = await _statsRepository.deductPoints(cost);
+    if (!hasPoints) {
+      _playErrorSound();
+      emit(state.copyWith(errorMessage: 'Not enough points! Need $cost.'));
+      return;
+    }
+
+    final meanings = await _repository.getWordMeanings(state.targetWord);
+    String msg = 'No hint available for this word.';
+
+    if (meanings != null) {
+      if (meanings.synonyms.isNotEmpty) {
+        msg = 'Synonym: ${meanings.synonyms.first}';
+      } else if (meanings.definitions.isNotEmpty) {
+        // Mask the word in definition
+        String def = meanings.definitions.first;
+        final target = state.targetWord;
+        // Simple mask: Replace target word (case insensitive) with ****
+        def = def.replaceAll(RegExp(target, caseSensitive: false), '****');
+        msg = 'Definition: $def';
+      }
+    }
+
+    _playSuccessSound();
+    emit(state.copyWith(hintMessage: msg));
+  }
+
+  void _playErrorSound() {
     if (_settingsRepository.isSoundEnabled) {
       try {
-        await _audioPlayer.play(AssetSource('sounds/success.wav'));
+        _audioPlayer.play(AssetSource('sounds/error.wav'));
+      } catch (_) {}
+    }
+  }
+
+  void _playSuccessSound() {
+    if (_settingsRepository.isSoundEnabled) {
+      try {
+        _audioPlayer.play(AssetSource('sounds/success.wav'));
       } catch (_) {}
     }
   }
@@ -468,7 +438,7 @@ class GameBloc extends HydratedBloc<GameEvent, GameState> {
   ) async {
     if (state.status != GameStatus.lost) return;
 
-    final cost = 50; // Revive Cost (Revised)
+    final cost = 30; // Revive Cost (Revised from 50)
     final hasPoints = await _statsRepository.deductPoints(cost);
 
     if (!hasPoints) {

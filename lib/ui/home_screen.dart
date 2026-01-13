@@ -6,6 +6,7 @@ import '../logic/game_bloc.dart';
 import '../logic/game_state.dart'; // Ensure state enum is visible
 import '../data/statistics_repository.dart';
 import '../data/settings_repository.dart';
+import '../data/word_repository.dart';
 import 'game_screen.dart';
 import 'settings_screen.dart';
 import 'library_screen.dart';
@@ -319,6 +320,31 @@ class _HomeContent extends StatefulWidget {
 
 class _HomeContentState extends State<_HomeContent> {
   // _formatCategory replaced by CategoryUtils.formatName
+  List<String> _dailyWords = [];
+  bool _loadingDaily = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadDailyChallenge());
+  }
+
+  Future<void> _loadDailyChallenge() async {
+    try {
+      final fetched = await context
+          .read<WordRepository>()
+          .getDailyChallengeWords();
+      if (mounted) {
+        setState(() {
+          _dailyWords = fetched;
+          _loadingDaily = false;
+        });
+      }
+    } catch (e) {
+      print("Error loading daily challenge: $e");
+      if (mounted) setState(() => _loadingDaily = false);
+    }
+  }
 
   // ... (existing helper methods)
 
@@ -346,6 +372,34 @@ class _HomeContentState extends State<_HomeContent> {
           categories: categories.isEmpty ? ['all'] : categories,
           level: level,
           isResuming: isResuming,
+        ),
+      ),
+    );
+  }
+
+  void _launchDailyGame(BuildContext context, String word) {
+    // Find appropriate level based on length to set attempts/difficulty
+    var bestLevel = gameLevels[2];
+    if (word.length <= 4)
+      bestLevel = gameLevels[0]; // Kindergarten
+    else if (word.length >= 7)
+      bestLevel = gameLevels[5]; // Grade 6+
+    // Or roughly match:
+    for (final l in gameLevels) {
+      if (word.length >= l.minLength &&
+          (l.maxLength == null || word.length <= l.maxLength!)) {
+        bestLevel = l;
+        break;
+      }
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => GameScreen(
+          categories: const ['all'],
+          level: bestLevel,
+          isResuming: false,
+          targetWord: word,
         ),
       ),
     );
@@ -527,43 +581,55 @@ class _HomeContentState extends State<_HomeContent> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: 0.6,
-                    backgroundColor: Colors.white24,
-                    color: const Color(0xFF69F0AE),
-                    minHeight: 8,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Text(
-                      "3/5 Words",
-                      style: TextStyle(fontSize: 12, color: Colors.white70),
-                    ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white24,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Text(
-                        "100 XP",
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
+                if (_loadingDaily)
+                  const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  )
+                else if (_dailyWords.isEmpty)
+                  const Text(
+                    "No challenges today!",
+                    style: TextStyle(color: Colors.white70),
+                  )
+                else
+                  Column(
+                    children: _dailyWords.asMap().entries.map((entry) {
+                      final word = entry.value;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4.0),
+                        child: ElevatedButton(
+                          onPressed: () => _launchDailyGame(context, word),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white24,
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(double.infinity, 40),
+                            alignment: Alignment.centerLeft,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                "Challenge ${entry.key + 1}: ${word.length} Letters"
+                                    .toUpperCase(),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const Icon(
+                                Icons.play_arrow_rounded,
+                                size: 16,
+                                color: Colors.white70,
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ),
-                  ],
-                ),
+                      );
+                    }).toList(),
+                  ),
               ],
             ),
           ),

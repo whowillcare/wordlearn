@@ -1,5 +1,22 @@
+import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'database_helper.dart';
+
+class WordMeanings {
+  final String word;
+  final String pos;
+  final List<String> definitions;
+  final List<String> synonyms;
+  final List<String> antonyms;
+
+  WordMeanings({
+    required this.word,
+    required this.pos,
+    required this.definitions,
+    required this.synonyms,
+    this.antonyms = const [],
+  });
+}
 
 class WordRepository {
   final DatabaseHelper _dbHelper = DatabaseHelper();
@@ -317,5 +334,67 @@ class WordRepository {
       [word.toLowerCase()],
     );
     return result.isNotEmpty;
+  }
+
+  Future<WordMeanings?> getWordMeanings(String word) async {
+    final db = await _dbHelper.database;
+    final result = await db.rawQuery(
+      '''
+      SELECT w.text, m.pos, m.definitions, m.synonyms
+      FROM words w
+      LEFT JOIN meanings m ON w.id = m.word_id
+      WHERE w.text = ?
+      ''',
+      [word.toLowerCase()],
+    );
+
+    if (result.isEmpty || result.first['pos'] == null) return null;
+
+    final row = result.first;
+    List<String> defs = [];
+    List<String> syns = [];
+
+    try {
+      if (row['definitions'] != null) {
+        defs = List<String>.from(jsonDecode(row['definitions'] as String));
+      }
+      if (row['synonyms'] != null) {
+        syns = List<String>.from(jsonDecode(row['synonyms'] as String));
+      }
+    } catch (e) {
+      print('Error parsing meanings for $word: $e');
+    }
+
+    return WordMeanings(
+      word: row['text'] as String,
+      pos: row['pos'] as String,
+      definitions: defs,
+      synonyms: syns,
+    );
+  }
+
+  Future<List<String>> getDailyChallengeWords() async {
+    final db = await _dbHelper.database;
+    List<String> dailyWords = [];
+
+    // 1. Length 3-4
+    final r1 = await db.rawQuery(
+      'SELECT text FROM words WHERE length BETWEEN 3 AND 4 AND is_common = 1 ORDER BY RANDOM() LIMIT 1',
+    );
+    if (r1.isNotEmpty) dailyWords.add(r1.first['text'] as String);
+
+    // 2. Length 5
+    final r2 = await db.rawQuery(
+      'SELECT text FROM words WHERE length = 5 AND is_common = 1 ORDER BY RANDOM() LIMIT 1',
+    );
+    if (r2.isNotEmpty) dailyWords.add(r2.first['text'] as String);
+
+    // 3. Length > 5
+    final r3 = await db.rawQuery(
+      'SELECT text FROM words WHERE length > 5 AND is_common = 1 ORDER BY RANDOM() LIMIT 1',
+    );
+    if (r3.isNotEmpty) dailyWords.add(r3.first['text'] as String);
+
+    return dailyWords;
   }
 }

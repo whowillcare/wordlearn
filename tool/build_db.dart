@@ -11,6 +11,15 @@ Future<void> main() async {
   final cwd = Directory.current.path;
   print('Building dictionary.db from $cwd ...');
 
+  // Generate version file (timestamp)
+  final versionFile = File(p.join(cwd, 'assets', 'version.txt'));
+  // Ensure assets dir exists first
+  versionFile.parent.createSync(recursive: true);
+
+  final version = DateTime.now().millisecondsSinceEpoch.toString();
+  await versionFile.writeAsString(version);
+  print('Generated assets/version.txt: $version');
+
   final dbPath = p.join(cwd, 'assets', 'dictionary.db');
   final dbFile = File(dbPath);
 

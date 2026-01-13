@@ -16,28 +16,32 @@ class WordDetailDialog extends StatefulWidget {
 class _WordDetailDialogState extends State<WordDetailDialog> {
   bool? _isLearnt;
   bool _isLoading = true;
+  WordMeanings? _meanings;
 
   @override
   void initState() {
     super.initState();
-    _checkStatus();
+    _loadData();
   }
 
-  Future<void> _checkStatus() async {
+  Future<void> _loadData() async {
     try {
       final repo = context.read<WordRepository>();
       final isLearnt = await repo.isWordLearnt(widget.word);
+      final meanings = await repo.getWordMeanings(widget.word);
+
       if (mounted) {
         setState(() {
           _isLearnt = isLearnt;
+          _meanings = meanings;
           _isLoading = false;
         });
       }
     } catch (e) {
-      print('Error checking word status: $e');
+      print('Error loading word details: $e');
       if (mounted) {
         setState(() {
-          _isLearnt = false; // Default to false
+          _isLearnt = false;
           _isLoading = false;
         });
       }
@@ -54,7 +58,6 @@ class _WordDetailDialogState extends State<WordDetailDialog> {
         await repo.deleteLearntWord(widget.word);
         if (mounted) setState(() => _isLearnt = false);
       } else {
-        // We need a category. For now, fetch generic or existing.
         final category = await repo.getWordCategory(widget.word);
         await repo.addLearntWord(widget.word, category);
         if (mounted) setState(() => _isLearnt = true);
@@ -80,37 +83,86 @@ class _WordDetailDialogState extends State<WordDetailDialog> {
         textAlign: TextAlign.center,
         style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2),
       ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            "Tap the bookmark to add or remove this word from your library.",
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey),
-          ),
-          const SizedBox(height: 20),
-          if (_isLoading)
-            const CircularProgressIndicator()
-          else
-            IconButton(
-              onPressed: _toggleStatus,
-              icon: Icon(
-                _isLearnt == true ? Icons.bookmark : Icons.bookmark_border,
-                size: 48,
-                color: _isLearnt == true ? Colors.deepPurple : Colors.grey,
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_isLoading)
+              const SizedBox(
+                height: 100,
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else ...[
+              if (_meanings != null) ...[
+                if (_meanings!.pos.isNotEmpty)
+                  Text(
+                    _meanings!.pos,
+                    style: const TextStyle(
+                      fontStyle: FontStyle.italic,
+                      color: Colors.grey,
+                    ),
+                  ),
+                const SizedBox(height: 10),
+                if (_meanings!.definitions.isNotEmpty)
+                  ..._meanings!.definitions
+                      .take(3)
+                      .map(
+                        (d) => Padding(
+                          padding: const EdgeInsets.only(bottom: 4.0),
+                          child: Text(d, textAlign: TextAlign.center),
+                        ),
+                      ),
+
+                if (_meanings!.synonyms.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  const Text(
+                    "Synonyms:",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                  Text(
+                    _meanings!.synonyms.take(5).join(', '),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.deepPurpleAccent,
+                    ),
+                  ),
+                ],
+              ] else
+                const Text(
+                  "No definitions found.",
+                  style: TextStyle(fontStyle: FontStyle.italic),
+                ),
+
+              const SizedBox(height: 20),
+
+              const Text(
+                "Tap the bookmark to add or remove from library.",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey, fontSize: 10),
               ),
-              tooltip: _isLearnt == true
-                  ? 'Remove from Library'
-                  : 'Add to Library',
-            ),
-          if (_isLearnt == true && !_isLoading)
-            const Padding(
-              padding: EdgeInsets.only(top: 8.0, bottom: 8.0),
-              child: Text("Saved!", style: TextStyle(color: Colors.green)),
-            ),
-          const SizedBox(height: 10),
-          const BannerAdWidget(),
-        ],
+              const SizedBox(height: 10),
+              IconButton(
+                onPressed: _toggleStatus,
+                icon: Icon(
+                  _isLearnt == true ? Icons.bookmark : Icons.bookmark_border,
+                  size: 48,
+                  color: _isLearnt == true ? Colors.deepPurple : Colors.grey,
+                ),
+                tooltip: _isLearnt == true
+                    ? 'Remove from Library'
+                    : 'Add to Library',
+              ),
+              if (_isLearnt == true)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8.0, bottom: 8.0),
+                  child: Text("Saved!", style: TextStyle(color: Colors.green)),
+                ),
+            ],
+            const SizedBox(height: 10),
+            const BannerAdWidget(),
+          ],
+        ),
       ),
       actions: [
         TextButton(

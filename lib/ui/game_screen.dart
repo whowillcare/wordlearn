@@ -5,6 +5,7 @@ import '../data/game_levels.dart';
 import '../logic/game_bloc.dart';
 import '../logic/game_state.dart';
 import '../data/settings_repository.dart';
+import '../data/word_repository.dart';
 
 import 'package:share_plus/share_plus.dart';
 import 'package:screenshot/screenshot.dart';
@@ -24,12 +25,14 @@ class GameScreen extends StatefulWidget {
   final List<String> categories;
   final GameLevel level;
   final bool isResuming;
+  final String? targetWord;
 
   const GameScreen({
     super.key,
     required this.categories,
     required this.level,
     this.isResuming = false,
+    this.targetWord,
   });
 
   @override
@@ -55,7 +58,11 @@ class _GameScreenState extends State<GameScreen> {
     // If NOT resuming, start a new game
     if (!widget.isResuming) {
       context.read<GameBloc>().add(
-        GameStarted(level: widget.level, categories: widget.categories),
+        GameStarted(
+          level: widget.level,
+          categories: widget.categories,
+          targetWord: widget.targetWord,
+        ),
       );
     }
   }
@@ -380,8 +387,60 @@ class _GameScreenState extends State<GameScreen> {
       icon: Icons.lightbulb,
       label: AppLocalizations.of(context)!.hint,
       onTap: state.status == GameStatus.playing
-          ? () => context.read<GameBloc>().add(HintRequested())
+          ? () => _showHintMenu(context)
           : null,
+    );
+  }
+
+  void _showHintMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text(
+                  'Choose a Hint',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.deepPurple,
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.text_fields, color: Colors.orange),
+                title: const Text('Reveal Letter'),
+                subtitle: const Text('Cost: 10 pts'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  context.read<GameBloc>().add(
+                    const HintRequested(HintType.letter),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.menu_book, color: Colors.blueAccent),
+                title: const Text('Reveal Synonym / Meaning'),
+                subtitle: const Text('Cost: 20 pts'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  context.read<GameBloc>().add(
+                    const HintRequested(HintType.synonym),
+                  );
+                },
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -410,7 +469,7 @@ class _GameScreenState extends State<GameScreen> {
               // If we show it, reviving is pointless for guessing.
               // So: Dialog must NOT show word yet.
               const Text(
-                'Revive for 20 Points?',
+                'Revive for 30 Points?',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
               ),
             const Text('+3 Extra Guesses'),
@@ -457,7 +516,7 @@ class _GameScreenState extends State<GameScreen> {
               backgroundColor: Colors.orange,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Revive (20 pts)'),
+            child: const Text('Revive (30 pts)'),
           ),
         ],
       ),
@@ -528,7 +587,37 @@ class _GameScreenState extends State<GameScreen> {
                   children: [
                     Text('Based on: ${state.targetWord.toUpperCase()}'),
                     const SizedBox(height: 10),
-                    // Future: Add definition or details here
+                    FutureBuilder<WordMeanings?>(
+                      future: context.read<WordRepository>().getWordMeanings(
+                        state.targetWord,
+                      ),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          );
+                        }
+                        if (snapshot.hasData && snapshot.data != null) {
+                          final m = snapshot.data!;
+                          if (m.definitions.isNotEmpty) {
+                            return Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Text(
+                                m.definitions.first,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            );
+                          }
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
                   ],
                 ),
                 actions: [

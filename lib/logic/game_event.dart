@@ -11,11 +11,16 @@ abstract class GameEvent extends Equatable {
 class GameStarted extends GameEvent {
   final List<String> categories;
   final GameLevel level;
+  final String? targetWord;
 
-  const GameStarted({required this.categories, required this.level});
+  const GameStarted({
+    required this.categories,
+    required this.level,
+    this.targetWord,
+  });
 
   @override
-  List<Object> get props => [categories, level];
+  List<Object?> get props => [categories, level, targetWord];
 }
 
 class GuessSubmitted extends GameEvent {
@@ -44,7 +49,15 @@ class AddToLibraryRequested extends GameEvent {}
 
 class GameRevived extends GameEvent {}
 
-class HintRequested extends GameEvent {}
+enum HintType { letter, synonym }
+
+class HintRequested extends GameEvent {
+  final HintType type;
+  const HintRequested(this.type);
+
+  @override
+  List<Object?> get props => [type];
+}
 
 class PointsEarned extends GameEvent {
   final int amount;
