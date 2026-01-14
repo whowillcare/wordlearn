@@ -17,6 +17,7 @@ import '../utils/category_utils.dart';
 
 import 'dart:math' as math;
 import 'dart:ui';
+import '../../core/logger.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -47,6 +48,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _showPointsActionDialog(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (ctx) => PointsActionDialog(
@@ -55,7 +57,7 @@ class _HomeScreenState extends State<HomeScreen>
             onUserEarnedReward: (amount) async {
               await context.read<StatisticsRepository>().addPoints(amount);
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text("Earned $amount Diamonds!")),
+                SnackBar(content: Text(l10n.earnedDiamonds(amount))),
               );
               _rewardedAdController.loadAd(); // Preload next
             },
@@ -76,17 +78,18 @@ class _HomeScreenState extends State<HomeScreen>
     if (result['claimed'] == false && mounted) {
       final reward = result['reward'];
       final streak = result['streak'];
+      final l10n = AppLocalizations.of(context)!;
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text(
-            "Daily Bonus! 🎉",
-            style: TextStyle(color: Colors.orange),
+          title: Text(
+            l10n.dailyBonusTitle,
+            style: const TextStyle(color: Colors.orange),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text("You maintained a $streak day streak!"),
+              Text(l10n.dailyBonusContent(streak)),
               const SizedBox(height: 10),
               Text(
                 "+$reward Diamonds",
@@ -100,7 +103,7 @@ class _HomeScreenState extends State<HomeScreen>
           actions: [
             ElevatedButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text("Claim"),
+              child: Text(l10n.claim),
             ),
           ],
         ),
@@ -124,7 +127,7 @@ class _HomeScreenState extends State<HomeScreen>
       _HomeContent(
         onGoToShop: () {
           setState(() {
-            _selectedIndex = 2;
+            _selectedIndex = 2; // Switch to Shop tab
           });
         },
       ),
@@ -361,9 +364,9 @@ class _HomeContent extends StatefulWidget {
 }
 
 class _HomeContentState extends State<_HomeContent> {
-  // _formatCategory replaced by CategoryUtils.formatName
   List<String> _dailyWords = [];
   bool _loadingDaily = true;
+  // Note: _formatCategory is replaced by CategoryUtils.formatName dynamically
 
   @override
   void initState() {
@@ -383,12 +386,10 @@ class _HomeContentState extends State<_HomeContent> {
         });
       }
     } catch (e) {
-      print("Error loading daily challenge: $e");
+      Log.e("Error loading daily challenge", e);
       if (mounted) setState(() => _loadingDaily = false);
     }
   }
-
-  // ... (existing helper methods)
 
   void _navigateToSettings() {
     Navigator.of(
@@ -408,9 +409,6 @@ class _HomeContentState extends State<_HomeContent> {
       orElse: () => gameLevels[2],
     );
 
-    // If starting NEW game, we might want to confirm if one exists?
-    // For now, straightforward push. GameScreen will handle the "Start" event if !isResuming.
-
     final result = await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => GameScreen(
@@ -421,20 +419,14 @@ class _HomeContentState extends State<_HomeContent> {
       ),
     );
 
-    // Handle navigation request from GameScreen
     if (result == 'GO_TO_SHOP' && mounted) {
       widget.onGoToShop();
     }
   }
 
   void _launchDailyGame(BuildContext context, String word) {
-    // Find appropriate level based on length to set attempts/difficulty
     var bestLevel = gameLevels[2];
-    if (word.length <= 4)
-      bestLevel = gameLevels[0]; // Kindergarten
-    else if (word.length >= 7)
-      bestLevel = gameLevels[5]; // Grade 6+
-    // Or roughly match:
+    // Simple heuristic for level
     for (final l in gameLevels) {
       if (word.length >= l.minLength &&
           (l.maxLength == null || word.length <= l.maxLength!)) {
@@ -462,7 +454,7 @@ class _HomeContentState extends State<_HomeContent> {
     final gameState = context.watch<GameBloc>().state;
     final isGameActive = gameState.status == GameStatus.playing;
 
-    // Derive Level Summary
+    // Derived State
     final levelKey = settings.gameLevel;
     final level = gameLevels.firstWhere(
       (l) => l.key == levelKey,
@@ -471,11 +463,10 @@ class _HomeContentState extends State<_HomeContent> {
     final levelSummary =
         "${level.name} (${level.minLength}-${level.maxLength ?? '+'})";
 
-    // Derive Category Summary
     final cats = settings.defaultCategories;
     String categorySummary;
     if (cats.isEmpty || cats.contains('all')) {
-      categorySummary = "All Categories";
+      categorySummary = "All Categories"; // Could localize if needed
     } else if (cats.length == 1) {
       categorySummary = CategoryUtils.formatName(cats.first);
     } else {
@@ -515,7 +506,7 @@ class _HomeContentState extends State<_HomeContent> {
 
           const SizedBox(height: 40),
 
-          // --- Category Section (Read Only) ---
+          // --- Category Section ---
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: _buildSectionHeader("CATEGORIES"),
@@ -536,7 +527,7 @@ class _HomeContentState extends State<_HomeContent> {
 
           const SizedBox(height: 30),
 
-          // --- Word Length Section (Read Only) ---
+          // --- Word Length Section ---
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: _buildSectionHeader("WORD LENGTH"),
@@ -559,18 +550,16 @@ class _HomeContentState extends State<_HomeContent> {
 
           // Actions
           if (isGameActive) ...[
-            // RESUME BUTTON
             GestureDetector(
               onTap: () => _startGame(context, isResuming: true),
               child: _buildMainButton(
                 context,
-                label: "RESUME GAME",
+                label: l10n.resumeGame.toUpperCase(),
                 icon: Icons.play_arrow_rounded,
-                colors: [Color(0xFF69F0AE), Color(0xFF00E676)], // Green
+                colors: [const Color(0xFF69F0AE), const Color(0xFF00E676)],
               ),
             ),
             const SizedBox(height: 16),
-            // NEW GAME BUTTON (Small)
             TextButton(
               onPressed: () => _startGame(context, isResuming: false),
               child: Container(
@@ -582,9 +571,9 @@ class _HomeContentState extends State<_HomeContent> {
                   color: Colors.white24,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Text(
-                  "START NEW GAME",
-                  style: TextStyle(
+                child: Text(
+                  l10n.startNewGame.toUpperCase(),
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                     fontSize: 12,
@@ -593,21 +582,20 @@ class _HomeContentState extends State<_HomeContent> {
               ),
             ),
           ] else ...[
-            // PLAY BUTTON
             GestureDetector(
               onTap: () => _startGame(context, isResuming: false),
               child: _buildMainButton(
                 context,
                 label: l10n.play.toUpperCase(),
                 icon: Icons.play_arrow_rounded,
-                colors: [Color(0xFFFFAB40), Color(0xFFFF6D00)], // Orange
+                colors: [const Color(0xFFFFAB40), const Color(0xFFFF6D00)],
               ),
             ),
           ],
 
           const SizedBox(height: 40),
 
-          // Daily Challenge Card
+          // Daily Challenge
           GlassContainer(
             margin: const EdgeInsets.symmetric(horizontal: 32),
             padding: const EdgeInsets.all(20),
@@ -636,9 +624,9 @@ class _HomeContentState extends State<_HomeContent> {
                     child: CircularProgressIndicator(color: Colors.white),
                   )
                 else if (_dailyWords.isEmpty)
-                  const Text(
-                    "No challenges today!",
-                    style: TextStyle(color: Colors.white70),
+                  Text(
+                    l10n.noChallengesToday,
+                    style: const TextStyle(color: Colors.white70),
                   )
                 else
                   Column(
@@ -662,7 +650,8 @@ class _HomeContentState extends State<_HomeContent> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                "Challenge ${entry.key + 1}: ${word.length} Letters"
+                                l10n
+                                    .challengeLevel(entry.key + 1, word.length)
                                     .toUpperCase(),
                                 style: const TextStyle(
                                   fontSize: 12,
@@ -683,7 +672,6 @@ class _HomeContentState extends State<_HomeContent> {
               ],
             ),
           ),
-
           const SizedBox(height: 80),
         ],
       ),
@@ -729,7 +717,7 @@ class _HomeContentState extends State<_HomeContent> {
           Text(
             label,
             style: const TextStyle(
-              fontSize: 24, // Slightly smaller to fit "RESUME GAME"
+              fontSize: 24,
               color: Colors.white,
               fontWeight: FontWeight.w900,
               letterSpacing: 1.5,

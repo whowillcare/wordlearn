@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'core/logger.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:path_provider/path_provider.dart';
-import 'data/word_repository.dart';
 import 'data/statistics_repository.dart';
 import 'data/word_repository.dart';
 import 'data/statistics_repository.dart';
@@ -16,6 +16,7 @@ import 'data/settings_repository.dart';
 import 'logic/game_bloc.dart';
 
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart'; // for kIsWeb
 
 import 'package:provider/provider.dart';
@@ -26,15 +27,24 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
     await Firebase.initializeApp();
-  } catch (e) {
-    print("Firebase init failed: $e");
+  } catch (e, s) {
+    Log.e("Firebase init failed", e, s);
   }
 
   try {
     await MobileAds.instance.initialize();
-  } catch (e) {
-    print("AdMob init failed: $e");
+  } catch (e, s) {
+    Log.e("AdMob init failed", e, s);
   }
+
+  // Pass all uncaught "fatal" errors from the framework to Crashlytics
+  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+
+  // Pass all uncaught asynchronous errors that aren't handled by the Flutter framework to Crashlytics
+  PlatformDispatcher.instance.onError = (error, stack) {
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    return true;
+  };
 
   // Initialize HydratedStorage for state persistence
   // Initialize HydratedStorage for state persistence

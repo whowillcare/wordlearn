@@ -294,6 +294,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Removed'**
   String get removed;
+
+  /// No description provided for @dailyBonusTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily Bonus! 🎉'**
+  String get dailyBonusTitle;
+
+  /// No description provided for @dailyBonusContent.
+  ///
+  /// In en, this message translates to:
+  /// **'You maintained a {streak} day streak!'**
+  String dailyBonusContent(Object streak);
+
+  /// No description provided for @claim.
+  ///
+  /// In en, this message translates to:
+  /// **'Claim'**
+  String get claim;
+
+  /// No description provided for @earnedDiamonds.
+  ///
+  /// In en, this message translates to:
+  /// **'Earned {amount} Diamonds!'**
+  String earnedDiamonds(Object amount);
+
+  /// No description provided for @resumeGame.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume Game'**
+  String get resumeGame;
+
+  /// No description provided for @startNewGame.
+  ///
+  /// In en, this message translates to:
+  /// **'Start New Game'**
+  String get startNewGame;
+
+  /// No description provided for @categories.
+  ///
+  /// In en, this message translates to:
+  /// **'Categories'**
+  String get categories;
+
+  /// No description provided for @wordLength.
+  ///
+  /// In en, this message translates to:
+  /// **'Word Length'**
+  String get wordLength;
+
+  /// No description provided for @noChallengesToday.
+  ///
+  /// In en, this message translates to:
+  /// **'No challenges today!'**
+  String get noChallengesToday;
+
+  /// No description provided for @challengeLevel.
+  ///
+  /// In en, this message translates to:
+  /// **'Challenge {number}: {length} Letters'**
+  String challengeLevel(Object length, Object number);
 }
 
 class _AppLocalizationsDelegate

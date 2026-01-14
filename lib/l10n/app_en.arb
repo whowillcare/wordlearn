@@ -33,5 +33,15 @@
   "noWordsLearnt": "No words learnt yet!",
   "noResults": "No results found.",
   "undo": "UNDO",
-  "removed": "Removed"
+  "removed": "Removed",
+  "dailyBonusTitle": "Daily Bonus! 🎉",
+  "dailyBonusContent": "You maintained a {streak} day streak!",
+  "claim": "Claim",
+  "earnedDiamonds": "Earned {amount} Diamonds!",
+  "resumeGame": "Resume Game",
+  "startNewGame": "Start New Game",
+  "categories": "Categories",
+  "wordLength": "Word Length",
+  "noChallengesToday": "No challenges today!",
+  "challengeLevel": "Challenge {number}: {length} Letters"
 }

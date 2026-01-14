@@ -5,6 +5,7 @@ import '../data/game_levels.dart';
 import '../data/statistics_repository.dart';
 import '../data/settings_repository.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:word_learn_app/core/logger.dart';
 
 import 'game_event.dart';
 import 'game_state.dart';
@@ -38,9 +39,6 @@ class GameBloc extends HydratedBloc<GameEvent, GameState> {
       final statusIndex = json['status'] as int? ?? 0;
       final status = GameStatus.values[statusIndex];
 
-      // If the saved game was already won or lost, we might want to reset or keep it.
-      // For now, let's keep it so user can see result, but maybe auto-start new one later.
-
       final levelKey = json['levelKey'] as String?;
       final level = gameLevels.firstWhere(
         (l) => l.key == levelKey,
@@ -61,9 +59,6 @@ class GameBloc extends HydratedBloc<GameEvent, GameState> {
         startTime: json['startTime'] != null
             ? DateTime.fromMillisecondsSinceEpoch(json['startTime'])
             : null,
-        // Re-construct letter status roughly or recalculate upon load if strictness needed.
-        // For simplicity, we can clear it and let UI/Logic rebuild it or perform a quick re-scan.
-        // Actually, let's recalculate it based on guesses to be safe/robust.
         letterStatus: _calculateLetterStatus(
           json['targetWord'] as String? ?? '',
           (json['guesses'] as List<dynamic>?)?.cast<String>() ?? [],
@@ -71,8 +66,8 @@ class GameBloc extends HydratedBloc<GameEvent, GameState> {
         categoryWordCount: json['categoryWordCount'] as int?,
         isWordSaved: json['isWordSaved'] as bool? ?? false,
       );
-    } catch (e) {
-      print('Failed to load game state: $e');
+    } catch (e, s) {
+      Log.e('Failed to load game state', e, s);
       return null;
     }
   }
@@ -92,8 +87,8 @@ class GameBloc extends HydratedBloc<GameEvent, GameState> {
         'categoryWordCount': state.categoryWordCount,
         'isWordSaved': state.isWordSaved,
       };
-    } catch (e) {
-      print('Failed to save game state: $e');
+    } catch (e, s) {
+      Log.e('Failed to save game state', e, s);
       return null;
     }
   }
@@ -103,7 +98,7 @@ class GameBloc extends HydratedBloc<GameEvent, GameState> {
     Emitter<GameState> emit,
   ) async {
     try {
-      print(
+      Log.i(
         'Starting game with Level: ${event.level.key}, Cats: ${event.categories.join(', ')}',
       );
 
@@ -111,7 +106,7 @@ class GameBloc extends HydratedBloc<GameEvent, GameState> {
       final maxLen = event.level.maxLength ?? 30;
 
       final allowSpecial = _settingsRepository.isSpecialCharsAllowed;
-      await _statsRepository.deductPoints(10); // Cost to play (Revised)
+      await _statsRepository.deductPoints(10); // Cost to play
 
       final words = await _repository.getWords(
         event.categories,
@@ -143,7 +138,7 @@ class GameBloc extends HydratedBloc<GameEvent, GameState> {
         target = words[_random.nextInt(words.length)].toLowerCase();
       }
 
-      print('Target word selected: $target');
+      Log.i('Target word selected: $target');
 
       emit(
         GameState(
@@ -159,7 +154,8 @@ class GameBloc extends HydratedBloc<GameEvent, GameState> {
           categoryWordCount: count,
         ),
       );
-    } catch (e) {
+    } catch (e, s) {
+      Log.e('Failed to start game', e, s);
       emit(state.copyWith(errorMessage: 'Failed to start game: $e'));
     }
   }
@@ -228,10 +224,7 @@ class GameBloc extends HydratedBloc<GameEvent, GameState> {
           .difference(state.startTime ?? finishTime)
           .inSeconds;
 
-      final score =
-          100; // Base score for stats (performance), separate from Currency
-
-      // Note: Auto-add validation logic moved to explicit user action
+      final score = 100;
 
       if (state.level != null) {
         await _statsRepository.recordGame(
@@ -246,7 +239,7 @@ class GameBloc extends HydratedBloc<GameEvent, GameState> {
         await _audioPlayer.play(AssetSource('sounds/success.wav'));
       } catch (_) {}
 
-      await _statsRepository.addPoints(20); // Reward for winning (Revised)
+      await _statsRepository.addPoints(20);
 
       emit(
         state.copyWith(
@@ -335,8 +328,8 @@ class GameBloc extends HydratedBloc<GameEvent, GameState> {
       final category = await _repository.getWordCategory(state.targetWord);
       await _repository.addLearntWord(state.targetWord, category);
       emit(state.copyWith(isWordSaved: true));
-    } catch (e) {
-      print('Error saving word: $e');
+    } catch (e, s) {
+      Log.e('Error saving word', e, s);
     }
   }
 
@@ -375,23 +368,20 @@ class GameBloc extends HydratedBloc<GameEvent, GameState> {
       return;
     }
 
-    // Filter out indices that the user has already guessed correctly
     final unknownIndices = unrevealedIndices.where((i) {
       for (final guess in state.guesses) {
         if (guess.length > i && guess[i] == target[i]) {
-          return false; // Already found this letter at this position
+          return false;
         }
       }
       return true;
     }).toList();
 
-    // Prefer unknown indices if available, otherwise fallback to any unrevealed
     final candidates = unknownIndices.isNotEmpty
         ? unknownIndices
         : unrevealedIndices;
 
     if (candidates.isEmpty) {
-      // Should be covered by unrevealedIndices.isEmpty, but safety check
       emit(state.copyWith(errorMessage: 'All letters known!'));
       return;
     }
@@ -405,10 +395,6 @@ class GameBloc extends HydratedBloc<GameEvent, GameState> {
 
   Future<void> _handleSynonymHint(Emitter<GameState> emit) async {
     const cost = 20;
-
-    // Check if already used? Maybe allowed multiple times if message lost?
-    // Usually hints are one-time per game or per request.
-    // Let's allow request.
 
     final hasPoints = await _statsRepository.deductPoints(cost);
     if (!hasPoints) {
@@ -424,10 +410,8 @@ class GameBloc extends HydratedBloc<GameEvent, GameState> {
       if (meanings.synonyms.isNotEmpty) {
         msg = 'Synonym: ${meanings.synonyms.first}';
       } else if (meanings.definitions.isNotEmpty) {
-        // Mask the word in definition
         String def = meanings.definitions.first;
         final target = state.targetWord;
-        // Simple mask: Replace target word (case insensitive) with ****
         def = def.replaceAll(RegExp(target, caseSensitive: false), '****');
         msg = 'Definition: $def';
       }
@@ -464,7 +448,7 @@ class GameBloc extends HydratedBloc<GameEvent, GameState> {
   ) async {
     if (state.status != GameStatus.lost) return;
 
-    final cost = 30; // Revive Cost (Revised from 50)
+    final cost = 30;
     final hasPoints = await _statsRepository.deductPoints(cost);
 
     if (!hasPoints) {

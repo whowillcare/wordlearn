@@ -1,4 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
+
+import 'package:word_learn_app/core/logger.dart';
 import 'package:google_sign_in/google_sign_in.dart' as gsi;
 
 class AuthRepository {
@@ -27,8 +29,8 @@ class AuthRepository {
       );
 
       return await _firebaseAuth.signInWithCredential(credential);
-    } catch (e) {
-      print("Google Sign-In Error: $e");
+    } catch (e, stack) {
+      Log.e("Google Sign-In Error", e, stack);
       rethrow;
     }
   }
