@@ -62,6 +62,12 @@ class StatisticsRepository {
     return p;
   }
 
+  Future<void> setTotalPoints(int points) async {
+    if (_prefs == null) await init();
+    await _prefs!.setInt(_keyPoints, points);
+    _pointsController.add(points);
+  }
+
   Future<void> addPoints(int amount) async {
     // Force init check inside getTotalPoints is enough but let's be safe
     if (_prefs == null) await init();

@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../data/settings_repository.dart';
 import '../data/word_repository.dart';
 import '../data/game_levels.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../data/auth_repository.dart';
 
 import '../l10n/app_localizations.dart';
 
@@ -245,6 +247,66 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onChanged: (val) => settings.setVip(val),
             secondary: const Icon(Icons.star_rounded, color: Colors.amber),
             activeColor: Colors.amber,
+          ),
+
+          // Google Account Integration
+          StreamBuilder<User?>(
+            stream: context.read<AuthRepository>().user,
+            builder: (context, snapshot) {
+              final user = snapshot.data;
+              final isConnected = user != null;
+
+              if (isConnected) {
+                return Column(
+                  children: [
+                    ListTile(
+                      leading: CircleAvatar(
+                        backgroundImage: user.photoURL != null
+                            ? NetworkImage(user.photoURL!)
+                            : null,
+                        child: user.photoURL == null
+                            ? const Icon(Icons.person)
+                            : null,
+                      ),
+                      title: Text(user.displayName ?? "User"),
+                      subtitle: Text(user.email ?? "Connected"),
+                      trailing: TextButton(
+                        onPressed: () async {
+                          await context.read<AuthRepository>().signOut();
+                        },
+                        child: const Text("Sign Out"),
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Text(
+                        "Your progress is synced to the cloud.",
+                        style: TextStyle(fontSize: 12, color: Colors.green),
+                      ),
+                    ),
+                  ],
+                );
+              } else {
+                return ListTile(
+                  leading: const Icon(Icons.cloud_off, color: Colors.grey),
+                  title: const Text("Connect Account"),
+                  subtitle: const Text("Sync progress & save stats"),
+                  trailing: ElevatedButton.icon(
+                    icon: const Icon(Icons.login, size: 16),
+                    label: const Text("Connect"),
+                    onPressed: () async {
+                      try {
+                        await context.read<AuthRepository>().signInWithGoogle();
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text("Login Failed: $e")),
+                        );
+                      }
+                    },
+                  ),
+                );
+              }
+            },
           ),
         ],
       ),

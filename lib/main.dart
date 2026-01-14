@@ -4,6 +4,10 @@ import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:path_provider/path_provider.dart';
 import 'data/word_repository.dart';
 import 'data/statistics_repository.dart';
+import 'data/word_repository.dart';
+import 'data/statistics_repository.dart';
+import 'data/auth_repository.dart';
+import 'data/cloud_sync_service.dart';
 import 'ui/home_screen.dart';
 
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -43,12 +47,21 @@ void main() async {
   final wordRepo = WordRepository();
   final statsRepo = await StatisticsRepository.init();
   final settingsRepo = await SettingsRepository.init();
+  final authRepo = AuthRepository();
+
+  // Initialize Cloud Sync (keeps running)
+  // ignore: unused_local_variable
+  final cloudSync = CloudSyncService(
+    authRepository: authRepo,
+    statsRepository: statsRepo,
+  );
 
   runApp(
     MyApp(
       repository: wordRepo,
       statsRepository: statsRepo,
       settingsRepository: settingsRepo,
+      authRepository: authRepo,
     ),
   );
 }
@@ -57,11 +70,14 @@ class MyApp extends StatelessWidget {
   final WordRepository repository;
   final StatisticsRepository statsRepository;
   final SettingsRepository settingsRepository;
+  final AuthRepository authRepository;
+
   const MyApp({
     super.key,
     required this.repository,
     required this.statsRepository,
     required this.settingsRepository,
+    required this.authRepository,
   });
 
   @override
@@ -70,6 +86,7 @@ class MyApp extends StatelessWidget {
       providers: [
         RepositoryProvider.value(value: repository),
         RepositoryProvider.value(value: statsRepository),
+        RepositoryProvider.value(value: authRepository),
         // Use ChangeNotifierProvider for SettingsRepository to enable context.watch()
         ChangeNotifierProvider.value(value: settingsRepository),
         BlocProvider(

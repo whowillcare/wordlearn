@@ -10,6 +10,8 @@ import 'package:word_learn_app/data/settings_repository.dart';
 import 'package:word_learn_app/main.dart';
 import 'package:word_learn_app/l10n/app_localizations.dart';
 
+import 'package:word_learn_app/data/auth_repository.dart';
+
 class MockWordRepository extends Mock implements WordRepository {
   @override
   Future<List<String>> getCategories() async => [];
@@ -94,6 +96,8 @@ class MockSettingsRepository extends Mock implements SettingsRepository {
   Future<void> syncSettings() async {}
 }
 
+class MockAuthRepository extends Mock implements AuthRepository {}
+
 class MockStorage extends Mock implements Storage {
   @override
   Future<void> write(String key, dynamic value) async {}
@@ -116,7 +120,9 @@ void main() {
       MyApp(
         repository: MockWordRepository(),
         statsRepository: MockStatisticsRepository(),
+        statsRepository: MockStatisticsRepository(),
         settingsRepository: MockSettingsRepository(),
+        authRepository: MockAuthRepository(),
       ),
     );
 

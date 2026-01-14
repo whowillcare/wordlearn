@@ -60,6 +60,7 @@ dependencies:
   screenshot: ^3.0.0
   wakelock_plus: ^1.4.0
   rxdart: ^0.28.0
+  google_sign_in: ^6.1.0
 
 dev_dependencies:
   sqflite_common_ffi: ^2.3.4
