@@ -35,6 +35,11 @@ class FilterLibrary extends LibraryEvent {
   const FilterLibrary({this.category, this.onlyFavorites = false});
 }
 
+class SearchLibrary extends LibraryEvent {
+  final String query;
+  const SearchLibrary(this.query);
+}
+
 // State
 class LibraryState extends Equatable {
   final List<Map<String, dynamic>> allWords;
@@ -42,6 +47,7 @@ class LibraryState extends Equatable {
   final bool isLoading;
   final String? selectedCategory;
   final bool showFavoritesOnly;
+  final String searchQuery;
 
   const LibraryState({
     this.allWords = const [],
@@ -49,6 +55,7 @@ class LibraryState extends Equatable {
     this.isLoading = true,
     this.selectedCategory,
     this.showFavoritesOnly = false,
+    this.searchQuery = '',
   });
 
   LibraryState copyWith({
@@ -57,6 +64,7 @@ class LibraryState extends Equatable {
     bool? isLoading,
     String? selectedCategory,
     bool? showFavoritesOnly,
+    String? searchQuery,
   }) {
     return LibraryState(
       allWords: allWords ?? this.allWords,
@@ -66,6 +74,7 @@ class LibraryState extends Equatable {
           selectedCategory ??
           this.selectedCategory, // Allow nullable update? logic below handles it
       showFavoritesOnly: showFavoritesOnly ?? this.showFavoritesOnly,
+      searchQuery: searchQuery ?? this.searchQuery,
     );
   }
 
@@ -76,6 +85,7 @@ class LibraryState extends Equatable {
     List<Map<String, dynamic>>? filteredWords,
     bool? isLoading,
     bool? showFavoritesOnly,
+    String? searchQuery,
   }) {
     return LibraryState(
       allWords: allWords ?? this.allWords,
@@ -83,6 +93,7 @@ class LibraryState extends Equatable {
       isLoading: isLoading ?? this.isLoading,
       selectedCategory: category,
       showFavoritesOnly: showFavoritesOnly ?? this.showFavoritesOnly,
+      searchQuery: searchQuery ?? this.searchQuery,
     );
   }
 
@@ -93,6 +104,7 @@ class LibraryState extends Equatable {
     isLoading,
     selectedCategory,
     showFavoritesOnly,
+    searchQuery,
   ];
 }
 
@@ -106,6 +118,7 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
     on<DeleteWord>(_onDeleteWord);
     on<UndoDeleteWord>(_onUndoDeleteWord);
     on<FilterLibrary>(_onFilterLibrary);
+    on<SearchLibrary>(_onSearchLibrary);
   }
 
   Future<void> _onLoadLibrary(
@@ -122,6 +135,7 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
           words,
           state.selectedCategory,
           state.showFavoritesOnly,
+          state.searchQuery,
         ),
       ),
     );
@@ -166,6 +180,7 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
       state.allWords,
       event.category,
       event.onlyFavorites,
+      state.searchQuery,
     );
 
     emit(
@@ -177,14 +192,29 @@ class LibraryBloc extends Bloc<LibraryEvent, LibraryState> {
     );
   }
 
+  void _onSearchLibrary(SearchLibrary event, Emitter<LibraryState> emit) {
+    final filtered = _applyFilter(
+      state.allWords,
+      state.selectedCategory,
+      state.showFavoritesOnly,
+      event.query,
+    );
+    emit(state.copyWith(searchQuery: event.query, filteredWords: filtered));
+  }
+
   List<Map<String, dynamic>> _applyFilter(
     List<Map<String, dynamic>> words,
     String? category,
     bool favoritesOnly,
+    String query,
   ) {
     return words.where((w) {
       if (favoritesOnly && w['is_favorite'] != true) return false;
       if (category != null && w['category'] != category) return false;
+      if (query.isNotEmpty &&
+          !(w['word'] as String).toLowerCase().contains(query.toLowerCase())) {
+        return false;
+      }
       return true;
     }).toList();
   }

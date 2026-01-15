@@ -23,6 +23,7 @@ import 'components/word_detail_dialog.dart';
 import 'components/rewarded_ad_controller.dart';
 import '../l10n/app_localizations.dart';
 import '../utils/category_utils.dart';
+import 'components/diamond_display.dart';
 import 'components/points_action_dialog.dart';
 
 class GameScreen extends StatefulWidget {
@@ -208,44 +209,9 @@ class _GameScreenState extends State<GameScreen> {
               stream: context.read<StatisticsRepository>().pointsStream,
               builder: (context, snapshot) {
                 final points = snapshot.data ?? 0;
-                return GestureDetector(
+                return DiamondDisplay(
+                  points: points,
                   onTap: () => _showPointsActionDialog(context),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.amber,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black12,
-                          blurRadius: 2,
-                          offset: Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          "$points",
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.deepPurple,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.diamond,
-                          size: 16,
-                          color: Colors.deepPurple,
-                        ),
-                      ],
-                    ),
-                  ),
                 );
               },
             ),
@@ -369,77 +335,84 @@ class _GameScreenState extends State<GameScreen> {
                       if (state.targetWord.contains(' '))
                         requiredSpecialChars.add(' ');
 
-                      final controlsSection = Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Power-up Row
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16.0,
-                              vertical: 8.0,
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                _buildHintButton(context, state),
-                                const SizedBox(width: 16),
-                                _buildPowerUpButton(
-                                  context,
-                                  icon: Icons.shuffle,
-                                  label: AppLocalizations.of(context)!.shuffle,
-                                  onTap: null, // Placeholder
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          if (state.status == GameStatus.won)
-                            _buildPostGameControls(context, state)
-                          else
-                            Keyboard(
-                              letterStatus: state.letterStatus,
-                              allowSpecialChars: settings.isSpecialCharsAllowed,
-                              visibleSpecialChars: requiredSpecialChars,
-                              onKeyTap: (letter) {
-                                context.read<GameBloc>().add(
-                                  GuessEntered(letter),
-                                );
-                              },
-                              onDeleteTap: () {
-                                context.read<GameBloc>().add(GuessDeleted());
-                              },
-                              onEnterTap: () {
-                                context.read<GameBloc>().add(GuessSubmitted());
-                              },
-                            ),
-                          if (state.isCategoryRevealed)
+                      final controlsSection = SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Power-up Row
                             Padding(
                               padding: const EdgeInsets.symmetric(
-                                vertical: 8.0,
                                 horizontal: 16.0,
+                                vertical: 8.0,
                               ),
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.yellow.shade100,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: Colors.orange.shade200,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  _buildHintButton(context, state),
+                                  const SizedBox(width: 16),
+                                  _buildPowerUpButton(
+                                    context,
+                                    icon: Icons.shuffle,
+                                    label: AppLocalizations.of(
+                                      context,
+                                    )!.shuffle,
+                                    onTap: null, // Placeholder
                                   ),
-                                ),
-                                child: Text(
-                                  state.hintMessage ?? "Category: ...",
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    color: Colors.deepOrange,
-                                    fontStyle: FontStyle.italic,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                                ],
                               ),
                             ),
-                          const SizedBox(height: 10),
-                        ],
+
+                            if (state.status == GameStatus.won)
+                              _buildPostGameControls(context, state)
+                            else
+                              Keyboard(
+                                letterStatus: state.letterStatus,
+                                allowSpecialChars:
+                                    settings.isSpecialCharsAllowed,
+                                visibleSpecialChars: requiredSpecialChars,
+                                onKeyTap: (letter) {
+                                  context.read<GameBloc>().add(
+                                    GuessEntered(letter),
+                                  );
+                                },
+                                onDeleteTap: () {
+                                  context.read<GameBloc>().add(GuessDeleted());
+                                },
+                                onEnterTap: () {
+                                  context.read<GameBloc>().add(
+                                    GuessSubmitted(),
+                                  );
+                                },
+                              ),
+                            if (state.isCategoryRevealed)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8.0,
+                                  horizontal: 16.0,
+                                ),
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.yellow.shade100,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: Colors.orange.shade200,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    state.hintMessage ?? "Category: ...",
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      color: Colors.deepOrange,
+                                      fontStyle: FontStyle.italic,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            const SizedBox(height: 10),
+                          ],
+                        ),
                       );
 
                       return Stack(
@@ -661,7 +634,7 @@ class _GameScreenState extends State<GameScreen> {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(context, false);
               // Now show the word in a snackbar as "official" give up
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -813,7 +786,7 @@ class _GameScreenState extends State<GameScreen> {
                     label: const Text('Share'),
                   ),
                   ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () => Navigator.pop(context, true),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.deepPurple,
                       foregroundColor: Colors.white,

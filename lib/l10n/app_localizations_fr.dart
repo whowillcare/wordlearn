@@ -12,6 +12,12 @@ class AppLocalizationsFr extends AppLocalizations {
   String get appTitle => 'WordLearn';
 
   @override
+  String get search => 'Search';
+
+  @override
+  String get minigames => 'Mini Games';
+
+  @override
   String get gameWon => 'You Won!';
 
   @override
@@ -140,4 +146,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String challengeLevel(Object length, Object number) {
     return 'Challenge $number: $length Letters';
   }
+
+  @override
+  String get signOut => 'Sign Out';
+
+  @override
+  String get guest => 'Guest';
 }

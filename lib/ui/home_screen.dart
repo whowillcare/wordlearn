@@ -1,23 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // Added
+import '../data/auth_repository.dart'; // Added
 
 import '../data/game_levels.dart';
 import '../logic/game_bloc.dart';
 import '../logic/game_state.dart'; // Ensure state enum is visible
 import '../data/statistics_repository.dart';
 import '../data/settings_repository.dart';
-import '../data/word_repository.dart';
 import 'game_screen.dart';
 import 'settings_screen.dart';
 import 'library_screen.dart';
 import 'components/points_action_dialog.dart';
 import 'components/rewarded_ad_controller.dart';
+import 'components/glass_container.dart';
+import 'components/neon_capsule.dart';
+import 'components/diamond_display.dart';
+import 'shop_screen.dart';
+import 'minigames_menu.dart';
 import '../l10n/app_localizations.dart';
 import '../utils/category_utils.dart';
+import 'daily_challenge_screen.dart';
 
 import 'dart:math' as math;
 import 'dart:ui';
-import '../../core/logger.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -132,7 +138,19 @@ class _HomeScreenState extends State<HomeScreen>
         },
       ),
       const LibraryScreen(),
-      _PlaceholderScreen(title: l10n.shop),
+      ShopScreen(
+        onWatchAd: () {
+          _rewardedAdController.showAd(
+            onUserEarnedReward: (amount) async {
+              await context.read<StatisticsRepository>().addPoints(amount);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(l10n.earnedDiamonds(amount))),
+              );
+              _rewardedAdController.loadAd(); // Preload next
+            },
+          );
+        },
+      ),
       const SettingsScreen(),
     ];
 
@@ -249,106 +267,167 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  void _handleProfileTap(BuildContext context, User? user) {
+    if (user == null) {
+      // Not logged in -> Show Login options
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
+    } else {
+      // Logged in -> Show Logout confirmation
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(AppLocalizations.of(context)!.signOut),
+          content: Text(
+            "Are you sure you want to sign out, ${user.displayName ?? 'User'}?",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("Cancel"),
+            ),
+            TextButton(
+              onPressed: () {
+                context.read<AuthRepository>().signOut();
+                Navigator.pop(ctx);
+              },
+              child: const Text("Sign Out"),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
   Widget _buildGamificationHeader(BuildContext context) {
     // Connect to real points
     final statsRepo = context.watch<StatisticsRepository>();
+    final authRepo = context.read<AuthRepository>();
 
-    return StreamBuilder<int>(
-      // Changed from FutureBuilder
-      stream: statsRepo.pointsStream,
-      builder: (context, snapshot) {
-        final points = snapshot.data ?? 0;
-        const isVip = true; // Placeholder
-        final l10n = AppLocalizations.of(context)!;
+    return StreamBuilder<User?>(
+      stream: authRepo.user,
+      builder: (context, userSnapshot) {
+        final user = userSnapshot.data;
+        // Logic: specific features or logged-in status defines VIP for now
+        final isVip = user != null;
 
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
-          child: GlassContainer(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
-                    boxShadow: const [
-                      BoxShadow(color: Colors.black26, blurRadius: 4),
-                    ],
-                  ),
-                  child: const CircleAvatar(
-                    backgroundColor: Colors.white,
-                    radius: 18,
-                    child: Icon(Icons.person, color: Colors.deepPurple),
-                  ),
+        return StreamBuilder<int>(
+          stream: statsRepo.pointsStream,
+          builder: (context, pointsSnapshot) {
+            final points = pointsSnapshot.data ?? 0;
+            final l10n = AppLocalizations.of(context)!;
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 20.0,
+                vertical: 8.0,
+              ),
+              child: GlassContainer(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
                 ),
-                const SizedBox(width: 12),
-                if (isVip)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Colors.amber, Colors.orange],
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () => _handleProfileTap(context, user),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                              boxShadow: const [
+                                BoxShadow(color: Colors.black26, blurRadius: 4),
+                              ],
+                            ),
+                            child: CircleAvatar(
+                              backgroundColor: Colors.white,
+                              radius: 18,
+                              backgroundImage: user?.photoURL != null
+                                  ? NetworkImage(user!.photoURL!)
+                                  : null,
+                              child: user?.photoURL == null
+                                  ? const Icon(
+                                      Icons.person,
+                                      color: Colors.deepPurple,
+                                    )
+                                  : null,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          if (isVip) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Colors.amber, Colors.orange],
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Colors.black26,
+                                    blurRadius: 4,
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.star,
+                                    size: 14,
+                                    color: Colors.white,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    l10n.vipMode.toUpperCase(),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 10,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ] else
+                            // Prompt to Login if not VIP
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Text(
+                                "GUEST",
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white70,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: const [
-                        BoxShadow(color: Colors.black26, blurRadius: 4),
-                      ],
                     ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.star, size: 14, color: Colors.white),
-                        const SizedBox(width: 4),
-                        Text(
-                          l10n.vipMode.toUpperCase(),
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 10,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
+                    const Spacer(),
+                    DiamondDisplay(
+                      points: points,
+                      onTap: () => _showPointsActionDialog(context),
                     ),
-                  ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.white.withOpacity(0.1)),
-                  ),
-                  child: GestureDetector(
-                    // Added interaction
-                    onTap: () => _showPointsActionDialog(context),
-                    child: Row(
-                      children: [
-                        Text(
-                          "$points",
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 14,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.diamond,
-                          size: 16,
-                          color: Colors.cyanAccent,
-                        ),
-                      ],
-                    ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -364,32 +443,7 @@ class _HomeContent extends StatefulWidget {
 }
 
 class _HomeContentState extends State<_HomeContent> {
-  List<String> _dailyWords = [];
-  bool _loadingDaily = true;
   // Note: _formatCategory is replaced by CategoryUtils.formatName dynamically
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadDailyChallenge());
-  }
-
-  Future<void> _loadDailyChallenge() async {
-    try {
-      final fetched = await context
-          .read<WordRepository>()
-          .getDailyChallengeWords();
-      if (mounted) {
-        setState(() {
-          _dailyWords = fetched;
-          _loadingDaily = false;
-        });
-      }
-    } catch (e) {
-      Log.e("Error loading daily challenge", e);
-      if (mounted) setState(() => _loadingDaily = false);
-    }
-  }
 
   void _navigateToSettings() {
     Navigator.of(
@@ -422,29 +476,6 @@ class _HomeContentState extends State<_HomeContent> {
     if (result == 'GO_TO_SHOP' && mounted) {
       widget.onGoToShop();
     }
-  }
-
-  void _launchDailyGame(BuildContext context, String word) {
-    var bestLevel = gameLevels[2];
-    // Simple heuristic for level
-    for (final l in gameLevels) {
-      if (word.length >= l.minLength &&
-          (l.maxLength == null || word.length <= l.maxLength!)) {
-        bestLevel = l;
-        break;
-      }
-    }
-
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => GameScreen(
-          categories: const ['all'],
-          level: bestLevel,
-          isResuming: false,
-          targetWord: word,
-        ),
-      ),
-    );
   }
 
   @override
@@ -480,27 +511,63 @@ class _HomeContentState extends State<_HomeContent> {
           const SizedBox(height: 60),
 
           // Hero Title
-          ShaderMask(
-            shaderCallback: (bounds) => const LinearGradient(
-              colors: [Colors.white, Colors.white70],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ).createShader(bounds),
-            child: Text(
-              l10n.appTitle.toUpperCase(),
-              style: const TextStyle(
-                fontSize: 48,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 4,
-                color: Colors.white,
-                shadows: [
-                  Shadow(
-                    color: Colors.black26,
-                    offset: Offset(0, 4),
-                    blurRadius: 10,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Colors.black26,
+                        blurRadius: 8,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.asset(
+                      'assets/app_icon.png',
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: ShaderMask(
+                      shaderCallback: (bounds) => const LinearGradient(
+                        colors: [Colors.white, Colors.white70],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ).createShader(bounds),
+                      child: const Text(
+                        "WORD-LE-ARN", // Updated to Word-Le-Arn as requested
+                        style: TextStyle(
+                          fontSize:
+                              40, // Slightly reduced to fit better with icon
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 3,
+                          color: Colors.white,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black26,
+                              offset: Offset(0, 4),
+                              blurRadius: 10,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
 
@@ -593,6 +660,21 @@ class _HomeContentState extends State<_HomeContent> {
             ),
           ],
 
+          const SizedBox(height: 16),
+
+          // Mini Games
+          GestureDetector(
+            onTap: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const MiniGamesMenu())),
+            child: _buildMainButton(
+              context,
+              label: l10n.minigames.toUpperCase(),
+              icon: Icons.extension,
+              colors: [Colors.purpleAccent, Colors.deepPurple],
+            ),
+          ),
+
           const SizedBox(height: 40),
 
           // Daily Challenge
@@ -619,56 +701,66 @@ class _HomeContentState extends State<_HomeContent> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                if (_loadingDaily)
-                  const Center(
-                    child: CircularProgressIndicator(color: Colors.white),
-                  )
-                else if (_dailyWords.isEmpty)
-                  Text(
-                    l10n.noChallengesToday,
-                    style: const TextStyle(color: Colors.white70),
-                  )
-                else
-                  Column(
-                    children: _dailyWords.asMap().entries.map((entry) {
-                      final word = entry.value;
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4.0),
-                        child: ElevatedButton(
-                          onPressed: () => _launchDailyGame(context, word),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white24,
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size(double.infinity, 40),
-                            alignment: Alignment.centerLeft,
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const DailyChallengeScreen(),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 16,
+                      horizontal: 20,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white30),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "TODAY'S WORDS",
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.8),
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              "3 Words • Global Stats",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: const BoxDecoration(
+                            color: Colors.orangeAccent,
+                            shape: BoxShape.circle,
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                l10n
-                                    .challengeLevel(entry.key + 1, word.length)
-                                    .toUpperCase(),
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const Icon(
-                                Icons.play_arrow_rounded,
-                                size: 16,
-                                color: Colors.white70,
-                              ),
-                            ],
+                          child: const Icon(
+                            Icons.play_arrow,
+                            color: Colors.white,
                           ),
                         ),
-                      );
-                    }).toList(),
+                      ],
+                    ),
                   ),
+                ),
               ],
             ),
           ),
@@ -762,153 +854,7 @@ class _HomeContentState extends State<_HomeContent> {
   }
 }
 
-class _PlaceholderScreen extends StatelessWidget {
-  final String title;
-  const _PlaceholderScreen({required this.title});
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 24,
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
-        ),
-      ),
-    );
-  }
-}
-
 // --- Components ---
-
-class GlassContainer extends StatelessWidget {
-  final Widget child;
-  final EdgeInsetsGeometry? padding;
-  final EdgeInsetsGeometry? margin;
-  final double? width;
-  final double? height;
-
-  const GlassContainer({
-    super.key,
-    required this.child,
-    this.padding,
-    this.margin,
-    this.width,
-    this.height,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: margin,
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-          child: Padding(padding: padding ?? EdgeInsets.zero, child: child),
-        ),
-      ),
-    );
-  }
-}
-
-class NeonCapsule extends StatelessWidget {
-  final String label;
-  final bool isSelected;
-  final bool isLocked;
-  final bool showCheck;
-  final VoidCallback onTap;
-
-  const NeonCapsule({
-    super.key,
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-    this.isLocked = false,
-    this.showCheck = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        decoration: BoxDecoration(
-          color: isLocked
-              ? Colors.black.withOpacity(0.3)
-              : (isSelected ? Colors.white : Colors.white.withOpacity(0.1)),
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(
-            color: isLocked
-                ? Colors.grey.withOpacity(0.3)
-                : (isSelected ? Colors.white : Colors.white.withOpacity(0.3)),
-            width: isSelected ? 0 : 1.5,
-          ),
-          boxShadow: isSelected && !isLocked
-              ? [
-                  BoxShadow(
-                    color: Colors.white.withOpacity(0.6),
-                    blurRadius: 12,
-                    spreadRadius: 1,
-                  ),
-                  const BoxShadow(
-                    color: Colors.white,
-                    blurRadius: 4,
-                    spreadRadius: 0,
-                  ),
-                ]
-              : [],
-        ),
-        alignment: Alignment.center,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (isLocked) ...[
-              const Icon(Icons.lock_rounded, color: Colors.white54, size: 14),
-              const SizedBox(width: 6),
-            ],
-            Text(
-              label.toUpperCase(),
-              style: TextStyle(
-                color: isLocked
-                    ? Colors.white54
-                    : (isSelected ? Colors.deepPurple : Colors.white),
-                fontWeight: FontWeight.w800,
-                fontSize: 12,
-                letterSpacing: 1,
-              ),
-            ),
-            if (showCheck && isSelected && !isLocked) ...[
-              const SizedBox(width: 6),
-              const Icon(
-                Icons.check_circle_rounded,
-                color: Colors.deepPurple,
-                size: 14,
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 // Custom Painter for Mesh Gradient
 class MeshGradientPainter extends CustomPainter {

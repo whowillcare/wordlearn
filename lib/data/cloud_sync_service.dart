@@ -2,16 +2,20 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:word_learn_app/core/logger.dart';
+import 'package:word_learn_app/data/word_repository.dart';
 import 'auth_repository.dart';
 import 'statistics_repository.dart';
 
 class CloudSyncService {
   final AuthRepository _authRepository;
   final StatisticsRepository _statsRepository;
+  final WordRepository _wordRepository;
   final FirebaseFirestore _firestore;
 
   StreamSubscription<User?>? _userSubscription;
   StreamSubscription<int>? _pointsSubscription;
+  StreamSubscription<WordUpdateEvent>? _wordUpdatesSubscription;
   String? _currentUserId;
 
   // Dynamic Collection Name
@@ -20,9 +24,11 @@ class CloudSyncService {
   CloudSyncService({
     required AuthRepository authRepository,
     required StatisticsRepository statsRepository,
+    required WordRepository wordRepository,
     FirebaseFirestore? firestore,
   }) : _authRepository = authRepository,
        _statsRepository = statsRepository,
+       _wordRepository = wordRepository,
        _firestore = firestore ?? FirebaseFirestore.instance {
     _init();
   }
@@ -35,11 +41,15 @@ class CloudSyncService {
     _pointsSubscription = _statsRepository.pointsStream.listen(
       _onPointsChanged,
     );
+
+    // Listen to Local Word Updates
+    _wordUpdatesSubscription = _wordRepository.updates.listen(_onWordUpdated);
   }
 
   void dispose() {
     _userSubscription?.cancel();
     _pointsSubscription?.cancel();
+    _wordUpdatesSubscription?.cancel();
   }
 
   Future<void> _onUserChanged(User? user) async {
@@ -47,6 +57,7 @@ class CloudSyncService {
     if (user != null) {
       // User logged in: Sync from Cloud
       await _syncFromCloud(user.uid);
+      await _syncWordsFromCloud(user.uid);
     }
   }
 
@@ -61,27 +72,32 @@ class CloudSyncService {
         final localPoints = await _statsRepository.getTotalPoints();
 
         // Conflict Resolution: Max wins (prevent data loss)
-        // Or if local > remote, update remote.
-        // If remote > local, update local.
-
         if (remotePoints > localPoints) {
+          Log.i(
+            "Sync: Cloud points ($remotePoints) > Local ($localPoints). Updating local.",
+          );
           await _statsRepository.setTotalPoints(remotePoints);
         } else if (localPoints > remotePoints) {
+          Log.i(
+            "Sync: Local points ($localPoints) > Cloud ($remotePoints). Updating cloud.",
+          );
           await _updateCloudPoints(uid, localPoints);
         }
       } else {
         // New user doc, upload local points
         final localPoints = await _statsRepository.getTotalPoints();
+        Log.i(
+          "Sync: New user. Uploading local points ($localPoints) to start.",
+        );
         await _updateCloudPoints(uid, localPoints);
       }
-    } catch (e) {
-      print("Sync Error: $e");
+    } catch (e, stack) {
+      Log.e("Sync Error", e, stack);
     }
   }
 
   Future<void> _onPointsChanged(int points) async {
     if (_currentUserId != null) {
-      // Debounce could be added here if needed, but Firestore writes are cheap enough for this volume
       await _updateCloudPoints(_currentUserId!, points);
     }
   }
@@ -92,8 +108,72 @@ class CloudSyncService {
         'totalPoints': points,
         'lastUpdated': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
-    } catch (e) {
-      print("Cloud Write Error: $e");
+      Log.i("Cloud Sync: Updated points to $points in $_usersCollection");
+    } catch (e, stack) {
+      Log.e("Cloud Write Error", e, stack);
+    }
+  }
+
+  // --- Learnt Words Sync ---
+
+  Future<void> _onWordUpdated(WordUpdateEvent event) async {
+    if (_currentUserId == null) return;
+    await _updateCloudWord(_currentUserId!, event);
+  }
+
+  Future<void> _updateCloudWord(String uid, WordUpdateEvent event) async {
+    try {
+      final docRef = _firestore
+          .collection(_usersCollection)
+          .doc(uid)
+          .collection('learnt_words')
+          .doc(event.word);
+
+      Log.i(
+        "Cloud Sync: Syncing word '${event.word}' for UID: $uid in $_usersCollection",
+      );
+
+      if (event.status == 'Deleted') {
+        await docRef.delete();
+        Log.i("Cloud Sync: Deleted word '${event.word}' from cloud");
+      } else {
+        await docRef.set({
+          'word': event.word,
+          'status': event.status,
+          'lastUpdated': FieldValue.serverTimestamp(),
+        });
+        Log.i("Cloud Sync: Updated word '${event.word}' to '${event.status}'");
+      }
+    } catch (e, stack) {
+      Log.e("Cloud Word Sync Error", e, stack);
+    }
+  }
+
+  Future<void> _syncWordsFromCloud(String uid) async {
+    try {
+      final snapshot = await _firestore
+          .collection(_usersCollection)
+          .doc(uid)
+          .collection('learnt_words')
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        Log.i("Sync: Found ${snapshot.docs.length} learnt words in cloud.");
+        for (final doc in snapshot.docs) {
+          final data = doc.data();
+          final String word = data['word'] as String;
+          final String status = data['status'] as String;
+
+          if (status == 'Learnt') {
+            await _wordRepository.addLearntWord(word, 'unknown');
+          } else if (status == 'Mastered') {
+            await _wordRepository.addLearntWord(word, 'unknown');
+            await _wordRepository.toggleFavorite(word, true);
+          }
+        }
+      }
+    } catch (e, stack) {
+      Log.e("Sync Words Error", e, stack);
     }
   }
 }

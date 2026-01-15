@@ -96,6 +96,7 @@ flutter:
   assets:
     - assets/dictionary.db
     - assets/version.txt
+    - assets/app_icon.png
     - assets/sounds/
 
   # An image asset can refer to one or more resolution-specific "variants", see

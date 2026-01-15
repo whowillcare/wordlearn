@@ -109,6 +109,18 @@ abstract class AppLocalizations {
   /// **'WordLearn'**
   String get appTitle;
 
+  /// No description provided for @search.
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get search;
+
+  /// No description provided for @minigames.
+  ///
+  /// In en, this message translates to:
+  /// **'Mini Games'**
+  String get minigames;
+
   /// No description provided for @gameWon.
   ///
   /// In en, this message translates to:
@@ -354,6 +366,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Challenge {number}: {length} Letters'**
   String challengeLevel(Object length, Object number);
+
+  /// No description provided for @signOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign Out'**
+  String get signOut;
+
+  /// No description provided for @guest.
+  ///
+  /// In en, this message translates to:
+  /// **'Guest'**
+  String get guest;
 }
 
 class _AppLocalizationsDelegate

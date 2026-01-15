@@ -12,6 +12,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appTitle => 'WordLearn';
 
   @override
+  String get search => 'Search';
+
+  @override
+  String get minigames => 'Mini Games';
+
+  @override
   String get gameWon => 'You Won!';
 
   @override
@@ -140,6 +146,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String challengeLevel(Object length, Object number) {
     return 'Challenge $number: $length Letters';
   }
+
+  @override
+  String get signOut => 'Sign Out';
+
+  @override
+  String get guest => 'Guest';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -242,4 +254,40 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get removed => 'Removed';
+
+  @override
+  String get dailyBonusTitle => 'Daily Bonus! 🎉';
+
+  @override
+  String dailyBonusContent(Object streak) {
+    return 'You maintained a $streak day streak!';
+  }
+
+  @override
+  String get claim => 'Claim';
+
+  @override
+  String earnedDiamonds(Object amount) {
+    return 'Earned $amount Diamonds!';
+  }
+
+  @override
+  String get resumeGame => 'Resume Game';
+
+  @override
+  String get startNewGame => 'Start New Game';
+
+  @override
+  String get categories => 'Categories';
+
+  @override
+  String get wordLength => 'Word Length';
+
+  @override
+  String get noChallengesToday => 'No challenges today!';
+
+  @override
+  String challengeLevel(Object length, Object number) {
+    return 'Challenge $number: $length Letters';
+  }
 }

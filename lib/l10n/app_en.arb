@@ -1,5 +1,7 @@
 {
   "appTitle": "WordLearn",
+  "search": "Search",
+  "minigames": "Mini Games",
   "@appTitle": {
     "description": "The title of the application"
   },
@@ -43,5 +45,7 @@
   "categories": "Categories",
   "wordLength": "Word Length",
   "noChallengesToday": "No challenges today!",
-  "challengeLevel": "Challenge {number}: {length} Letters"
+  "challengeLevel": "Challenge {number}: {length} Letters",
+  "signOut": "Sign Out",
+  "guest": "Guest"
 }

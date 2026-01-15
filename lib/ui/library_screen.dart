@@ -5,6 +5,7 @@ import '../../logic/library_bloc.dart';
 import 'package:intl/intl.dart';
 import 'word_detail_screen.dart';
 import '../l10n/app_localizations.dart';
+import '../data/auth_repository.dart';
 import '../utils/category_utils.dart';
 
 class LibraryScreen extends StatelessWidget {
@@ -109,132 +110,243 @@ class LibraryView extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (state.filteredWords.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.auto_stories,
-                    size: 80,
-                    color: Colors.black12,
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: '${l10n.search}...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    state.allWords.isEmpty
-                        ? l10n.noWordsLearnt
-                        : l10n.noResults,
-                    style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(8),
-            itemCount: state.filteredWords.length,
-            itemBuilder: (context, index) {
-              final wordData = state.filteredWords[index];
-              final word = wordData['word'] as String;
-              final category = wordData['category'] as String? ?? 'Unknown';
-              final dateAdded = DateTime.fromMillisecondsSinceEpoch(
-                wordData['date_added'] as int,
-              );
-              final isFav = wordData['is_favorite'] == true;
-
-              return Dismissible(
-                key: Key(word),
-                background: Container(
-                  margin: const EdgeInsets.symmetric(vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.redAccent,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.only(right: 20.0),
-                  child: const Icon(Icons.delete, color: Colors.white),
+                  onChanged: (value) {
+                    context.read<LibraryBloc>().add(SearchLibrary(value));
+                  },
                 ),
-                direction: DismissDirection.endToStart,
-                onDismissed: (direction) {
-                  context.read<LibraryBloc>().add(DeleteWord(word));
+              ),
+              Expanded(
+                child: state.filteredWords.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.auto_stories,
+                              size: 80,
+                              color: Colors.black12,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              state.allWords.isEmpty
+                                  ? l10n.noWordsLearnt
+                                  : l10n.noResults,
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        itemCount: state.filteredWords.length,
+                        itemBuilder: (context, index) {
+                          final wordData = state.filteredWords[index];
+                          final word = wordData['word'] as String;
+                          final category =
+                              wordData['category'] as String? ?? 'Unknown';
+                          final dateAdded = DateTime.fromMillisecondsSinceEpoch(
+                            wordData['date_added'] as int,
+                          );
+                          final isFav = wordData['is_favorite'] == true;
 
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('${l10n.removed} "$word"'),
-                      action: SnackBarAction(
-                        label: l10n.undo,
-                        onPressed: () {
-                          context.read<LibraryBloc>().add(
-                            UndoDeleteWord(word, category, isFav),
+                          return Dismissible(
+                            key: Key(word),
+                            background: Container(
+                              margin: const EdgeInsets.symmetric(vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              alignment: Alignment.centerRight,
+                              padding: const EdgeInsets.only(right: 20.0),
+                              child: const Icon(
+                                Icons.delete,
+                                color: Colors.white,
+                              ),
+                            ),
+                            direction: DismissDirection.endToStart,
+                            onDismissed: (direction) {
+                              context.read<LibraryBloc>().add(DeleteWord(word));
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('${l10n.removed} "$word"'),
+                                  action: SnackBarAction(
+                                    label: l10n.undo,
+                                    onPressed: () {
+                                      context.read<LibraryBloc>().add(
+                                        UndoDeleteWord(word, category, isFav),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Card(
+                              elevation: 2,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 6,
+                              ),
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                leading: CircleAvatar(
+                                  backgroundColor: isFav
+                                      ? Colors.amber[100]
+                                      : Colors.grey[100],
+                                  child: Text(
+                                    word[0].toUpperCase(),
+                                    style: TextStyle(
+                                      color: isFav
+                                          ? Colors.deepOrange
+                                          : Colors.grey[600],
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                title: Text(
+                                  word.toUpperCase(),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  '${CategoryUtils.formatName(category)} • ${DateFormat.yMMMd().format(dateAdded)}',
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          WordDetailScreen(word: word),
+                                    ),
+                                  );
+                                },
+                                trailing: IconButton(
+                                  icon: Icon(
+                                    isFav ? Icons.star : Icons.star_border,
+                                    color: isFav ? Colors.amber : Colors.grey,
+                                  ),
+                                  onPressed: () {
+                                    context.read<LibraryBloc>().add(
+                                      ToggleFavorite(word, !isFav),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
                           );
                         },
                       ),
-                    ),
-                  );
-                },
-                child: Card(
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 6,
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    leading: CircleAvatar(
-                      backgroundColor: isFav
-                          ? Colors.amber[100]
-                          : Colors.grey[100],
-                      child: Text(
-                        word[0].toUpperCase(),
-                        style: TextStyle(
-                          color: isFav ? Colors.deepOrange : Colors.grey[600],
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    title: Text(
-                      word.toUpperCase(),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    subtitle: Text(
-                      '${CategoryUtils.formatName(category)} • ${DateFormat.yMMMd().format(dateAdded)}',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                    ),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => WordDetailScreen(word: word),
-                        ),
-                      );
-                    },
-                    trailing: IconButton(
-                      icon: Icon(
-                        isFav ? Icons.star : Icons.star_border,
-                        color: isFav ? Colors.amber : Colors.grey,
-                      ),
-                      onPressed: () {
-                        context.read<LibraryBloc>().add(
-                          ToggleFavorite(word, !isFav),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              );
-            },
+              ),
+            ],
           );
         },
+      ),
+      floatingActionButton: StreamBuilder(
+        stream: context.read<AuthRepository>().user,
+        builder: (context, snapshot) {
+          final isVip = snapshot.hasData; // Simple VIP check
+          if (!isVip) return const SizedBox.shrink();
+
+          return FloatingActionButton(
+            onPressed: () => _showAddWordDialog(context),
+            backgroundColor: Colors.deepPurple,
+            child: const Icon(Icons.add),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showAddWordDialog(BuildContext context) {
+    final wordController = TextEditingController();
+    final categoryController = TextEditingController(text: 'Custom');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Add Custom Word'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: wordController,
+              decoration: const InputDecoration(
+                labelText: 'Word',
+                hintText: 'Enter new word',
+              ),
+              textCapitalization: TextCapitalization.characters,
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: categoryController,
+              decoration: const InputDecoration(
+                labelText: 'Category',
+                hintText: 'e.g. Science, Slang',
+              ),
+              textCapitalization: TextCapitalization.sentences,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final word = wordController.text.trim();
+              final category = categoryController.text.trim();
+              if (word.isEmpty || category.isEmpty) return;
+
+              await context.read<WordRepository>().addCustomWord(
+                word,
+                '',
+                category,
+              );
+
+              if (context.mounted) {
+                Navigator.pop(ctx);
+                context.read<LibraryBloc>().add(LoadLibrary());
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Added "$word" to library')),
+                );
+              }
+            },
+            child: const Text('Add'),
+          ),
+        ],
       ),
     );
   }

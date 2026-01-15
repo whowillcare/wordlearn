@@ -79,10 +79,15 @@ class DatabaseHelper {
       Log.e('Error ensuring database integrity', e, s);
     }
 
-    return await openDatabase(
-      path,
-      version: 1,
-      readOnly: false, // We might write user progress?
-    );
+    final db = await openDatabase(path, version: 1, readOnly: false);
+
+    // Schema Migration: Add notes column if missing
+    try {
+      await db.execute('ALTER TABLE user_progress ADD COLUMN notes TEXT');
+    } catch (_) {
+      // Column likely already exists or table structure is different; ignore
+    }
+
+    return db;
   }
 }

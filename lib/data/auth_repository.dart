@@ -24,7 +24,12 @@ class AuthRepository {
       final gsi.GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
 
+      Log.i(
+        "Google Auth Tokens - Access: ${googleAuth.accessToken != null}, ID: ${googleAuth.idToken != null}",
+      );
+
       final AuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 

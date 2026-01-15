@@ -46,9 +46,12 @@ app.*.map.json
 # Firebase config
 lib/firebase_options.dart
 build_db_output.txt
-ios/Podfile.lock
-macos/Podfile.lock
-pubspec.lock
-pubspec.lock
-pubspec.lock
-pubspec.lock
+*.lock
+**/*.lock
+#ios/Podfile.lock
+#macos/Podfile.lock
+#pubspec.lock
+#pubspec.lock
+#pubspec.lock
+#pubspec.lock
+android/keystore.properties

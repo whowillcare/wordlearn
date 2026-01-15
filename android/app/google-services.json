@@ -12,7 +12,20 @@
           "package_name": "com.wit4you.wordlearn"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "818245526732-9tuna8amu5k6mq6p828ql8lhjo97aspu.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.wit4you.wordlearn",
+            "certificate_hash": "dc3be7bd0c3fd6ab2904c675bc4ba4885e35aadf"
+          }
+        },
+        {
+          "client_id": "818245526732-tikjq1usfau50fs59r0cm6chcve3pkgf.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAzNLIMgocmoy4MONz5cPCIu-KIX-lzhDk"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "818245526732-tikjq1usfau50fs59r0cm6chcve3pkgf.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "818245526732-6j8p2ugs1le4inf9uho6269m6bttiv1p.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.wit4you.wordlearn"
+              }
+            }
+          ]
         }
       }
     }

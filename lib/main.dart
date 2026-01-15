@@ -5,7 +5,6 @@ import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:path_provider/path_provider.dart';
 import 'data/statistics_repository.dart';
 import 'data/word_repository.dart';
-import 'data/statistics_repository.dart';
 import 'data/auth_repository.dart';
 import 'data/cloud_sync_service.dart';
 import 'ui/home_screen.dart';
@@ -64,6 +63,7 @@ void main() async {
   final cloudSync = CloudSyncService(
     authRepository: authRepo,
     statsRepository: statsRepo,
+    wordRepository: wordRepo,
   );
 
   runApp(

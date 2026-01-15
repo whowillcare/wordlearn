@@ -1,48 +1,76 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../data/statistics_repository.dart';
 
 class PointsActionDialog extends StatelessWidget {
-  final VoidCallback onWatchAd;
-  final VoidCallback onGoToShop;
+  final VoidCallback? onWatchAd;
+  final VoidCallback? onGoToShop;
 
-  const PointsActionDialog({
-    super.key,
-    required this.onWatchAd,
-    required this.onGoToShop,
-  });
+  const PointsActionDialog({super.key, this.onWatchAd, this.onGoToShop});
+
+  static void show(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => const PointsActionDialog(),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text(
-        "Need more Diamonds?",
-        style: TextStyle(color: Colors.deepPurple, fontWeight: FontWeight.bold),
-      ),
-      content: const Text(
-        "Earn diamonds by watching a short video or visit the shop for more options.",
+      title: const Text('Get More Diamonds'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.ondemand_video, color: Colors.deepPurple),
+            title: const Text('Watch Ad (+10 💎)'),
+            subtitle: const Text('Coming soon!'),
+            onTap: () {
+              Navigator.pop(context);
+              if (onWatchAd != null) {
+                onWatchAd!();
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Ads not implemented yet!')),
+                );
+              }
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.shopping_cart, color: Colors.deepPurple),
+            title: const Text('Visit Shop'),
+            onTap: () {
+              Navigator.pop(context);
+              if (onGoToShop != null) {
+                onGoToShop!();
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Shop coming soon!')),
+                );
+              }
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.card_giftcard, color: Colors.orange),
+            title: const Text('Free Daily Reward'),
+            onTap: () async {
+              Navigator.pop(context);
+              final repo = context.read<StatisticsRepository>();
+              await repo.addPoints(10);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('You got +10 Free Diamonds!')),
+              );
+            },
+          ),
+        ],
       ),
       actions: [
-        TextButton.icon(
-          onPressed: () {
-            Navigator.of(context).pop();
-            onGoToShop();
-          },
-          icon: const Icon(Icons.shopping_bag, color: Colors.orange),
-          label: const Text(
-            "Go to Shop",
-            style: TextStyle(color: Colors.orange),
-          ),
-        ),
-        ElevatedButton.icon(
-          onPressed: () {
-            Navigator.of(context).pop();
-            onWatchAd();
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.deepPurple,
-            foregroundColor: Colors.white,
-          ),
-          icon: const Icon(Icons.videocam),
-          label: const Text("Watch Video (+50 Diamonds)"),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
         ),
       ],
     );
