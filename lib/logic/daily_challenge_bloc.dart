@@ -83,14 +83,21 @@ class DailyChallengeBloc
     emit(state.copyWith(status: DailyChallengeStatus.loading));
     try {
       final challenge = await _repository.getDailyChallenge();
-      // TODO: Check local persistence if already played today?
-      // For now, just load it.
+      final hasCompleted = await _repository.hasCompletedDailyChallenge();
+
       emit(
         state.copyWith(
-          status: DailyChallengeStatus.ready,
+          status: hasCompleted
+              ? DailyChallengeStatus.finished
+              : DailyChallengeStatus.ready,
           challenge: challenge,
           currentWordIndex: 0,
-          results: [],
+          results: hasCompleted
+              ? List.filled(challenge.words.length, true)
+              : [], // Fake results if done?
+          errorMessage: hasCompleted
+              ? 'You have already completed today\'s challenge!'
+              : null,
         ),
       );
     } catch (e) {
@@ -103,8 +110,15 @@ class DailyChallengeBloc
     }
   }
 
-  void _onStart(StartDailyGame event, Emitter<DailyChallengeState> emit) {
+  Future<void> _onStart(
+    StartDailyGame event,
+    Emitter<DailyChallengeState> emit,
+  ) async {
     if (state.challenge == null) return;
+
+    // Log Attempt
+    await _repository.incrementStartStats();
+
     emit(
       state.copyWith(status: DailyChallengeStatus.playing, currentWordIndex: 0),
     );
@@ -119,11 +133,25 @@ class DailyChallengeBloc
 
     final newResults = List<bool>.from(state.results)..add(event.success);
 
-    // Update Global Stats in Background
-    _repository.incrementStats(won: event.success);
+    // No per-word global stat update anymore
 
     if (state.currentWordIndex >= state.challenge!.words.length - 1) {
-      // Finished
+      // Finished Game
+      final wins = newResults.where((r) => r).length;
+      final isWin =
+          wins ==
+          state
+              .challenge!
+              .words
+              .length; // Strict: All words must be won? Or majority? User implied 3/3.
+
+      if (isWin) {
+        await _repository.incrementWinStats();
+        await _repository.markDailyChallengeCompleted();
+      } else {
+        await _repository.incrementLossStats();
+      }
+
       try {
         // Try to get updated stats
         final updatedChallenge = await _repository.getDailyChallenge();

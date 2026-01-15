@@ -84,9 +84,14 @@ class DatabaseHelper {
     // Schema Migration: Add notes column if missing
     try {
       await db.execute('ALTER TABLE user_progress ADD COLUMN notes TEXT');
-    } catch (_) {
-      // Column likely already exists or table structure is different; ignore
-    }
+    } catch (_) {}
+
+    // Schema Migration: Add updated_at column for Sync
+    try {
+      await db.execute(
+        'ALTER TABLE user_progress ADD COLUMN updated_at INTEGER',
+      );
+    } catch (_) {}
 
     return db;
   }

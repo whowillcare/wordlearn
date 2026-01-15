@@ -140,7 +140,8 @@ class CloudSyncService {
         await docRef.set({
           'word': event.word,
           'status': event.status,
-          'lastUpdated': FieldValue.serverTimestamp(),
+          'updated_at': event.timestamp.millisecondsSinceEpoch,
+          'lastSynced': FieldValue.serverTimestamp(),
         });
         Log.i("Cloud Sync: Updated word '${event.word}' to '${event.status}'");
       }
@@ -163,12 +164,29 @@ class CloudSyncService {
           final data = doc.data();
           final String word = data['word'] as String;
           final String status = data['status'] as String;
+          final int remoteUpdatedAt = (data['updated_at'] as int?) ?? 0;
 
-          if (status == 'Learnt') {
-            await _wordRepository.addLearntWord(word, 'unknown');
-          } else if (status == 'Mastered') {
-            await _wordRepository.addLearntWord(word, 'unknown');
-            await _wordRepository.toggleFavorite(word, true);
+          // Check Local State
+          final localData = await _wordRepository.getLearntWordSyncData(word);
+          final int localUpdatedAt = localData != null
+              ? (localData['updated_at'] as int)
+              : 0;
+
+          if (remoteUpdatedAt > localUpdatedAt) {
+            Log.i(
+              "Sync: Cloud word '$word' is newer ($remoteUpdatedAt > $localUpdatedAt). Updating local.",
+            );
+            if (status == 'Learnt') {
+              await _wordRepository.addLearntWord(word, 'unknown');
+            } else if (status == 'Mastered') {
+              // Add then Toggle to ensure state
+              await _wordRepository.addLearntWord(word, 'unknown');
+              await _wordRepository.toggleFavorite(word, true);
+            }
+          } else {
+            Log.i(
+              "Sync: Local word '$word' is newer or equal ($localUpdatedAt >= $remoteUpdatedAt). Skipping cloud overwrite.",
+            );
           }
         }
       }

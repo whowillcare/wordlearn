@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'word_repository.dart';
 
 class DailyChallenge {
@@ -84,21 +85,47 @@ class DailyChallengeRepository {
     });
   }
 
-  Future<void> incrementStats({required bool won}) async {
+  Future<void> incrementStartStats() async {
+    // Called when user STARTS a game -> Attempts + 1
     final docRef = _dailyDocRef;
-    final updates = {'stats.attempts': FieldValue.increment(1)};
-
-    if (won) {
-      updates['stats.wins'] = FieldValue.increment(1);
-    } else {
-      updates['stats.losses'] = FieldValue.increment(1);
-    }
-
     try {
-      await docRef.update(updates);
+      await docRef.update({'stats.attempts': FieldValue.increment(1)});
     } catch (e) {
-      // If doc missing (rare race condition if day rolled over), ignore or retry
-      print("Error updating stats: $e");
+      print("Error updating start stats: $e");
     }
+  }
+
+  Future<void> incrementWinStats() async {
+    // Called when user WINS the game -> Wins + 1
+    final docRef = _dailyDocRef;
+    try {
+      await docRef.update({'stats.wins': FieldValue.increment(1)});
+    } catch (e) {
+      print("Error updating win stats: $e");
+    }
+  }
+
+  Future<void> incrementLossStats() async {
+    // Called when user FAILS the game -> Losses + 1
+    final docRef = _dailyDocRef;
+    try {
+      await docRef.update({'stats.losses': FieldValue.increment(1)});
+    } catch (e) {
+      print("Error updating loss stats: $e");
+    }
+  }
+
+  // --- Local Persistence for Daily Status ---
+
+  Future<bool> hasCompletedDailyChallenge() async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = 'daily_solved_$_todayStr';
+    return prefs.getBool(key) ?? false;
+  }
+
+  Future<void> markDailyChallengeCompleted() async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = 'daily_solved_$_todayStr';
+    await prefs.setBool(key, true);
   }
 }

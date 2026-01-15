@@ -294,6 +294,7 @@ class WordRepository {
       'word_id': wordId,
       'status': 'Learnt',
       'next_review_date': DateTime.now().millisecondsSinceEpoch,
+      'updated_at': DateTime.now().millisecondsSinceEpoch,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
 
     _updateController.add(
@@ -345,7 +346,7 @@ class WordRepository {
 
     await db.update(
       'user_progress',
-      {'status': status},
+      {'status': status, 'updated_at': DateTime.now().millisecondsSinceEpoch},
       where: 'word_id = ?',
       whereArgs: [wordId],
     );
@@ -384,6 +385,27 @@ class WordRepository {
       [word.toLowerCase()],
     );
     return result.isNotEmpty;
+  }
+
+  Future<Map<String, dynamic>?> getLearntWordSyncData(String word) async {
+    final db = await _dbHelper.database;
+    final result = await db.rawQuery(
+      '''
+      SELECT up.status, up.updated_at
+      FROM user_progress up
+      JOIN words w ON up.word_id = w.id
+      WHERE w.text = ?
+      ''',
+      [word.toLowerCase()],
+    );
+
+    if (result.isNotEmpty) {
+      return {
+        'status': result.first['status'],
+        'updated_at': result.first['updated_at'] ?? 0,
+      };
+    }
+    return null;
   }
 
   Future<WordMeanings?> getWordMeanings(String word) async {
@@ -510,7 +532,7 @@ class WordRepository {
 
     await db.update(
       'user_progress',
-      {'notes': note},
+      {'notes': note, 'updated_at': DateTime.now().millisecondsSinceEpoch},
       where: 'word_id = ?',
       whereArgs: [wordId],
     );

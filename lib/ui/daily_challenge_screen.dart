@@ -198,9 +198,13 @@ class _DailyChallengeViewState extends State<DailyChallengeView> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              "Challenge Complete!",
-              style: TextStyle(
+            Text(
+              state.errorMessage != null &&
+                      state.errorMessage!.contains('already completed')
+                  ? "You Completed Today's Challenge!"
+                  : "Challenge Complete!",
+              textAlign: TextAlign.center,
+              style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
                 color: Colors.deepPurple,
