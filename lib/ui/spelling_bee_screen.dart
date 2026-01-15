@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../logic/spelling_bee_bloc.dart';
 import '../data/word_repository.dart';
 import '../data/statistics_repository.dart';
+import '../data/settings_repository.dart';
+import '../utils/category_utils.dart';
 import 'components/diamond_display.dart';
 import 'components/points_action_dialog.dart';
 import 'components/glass_container.dart';
@@ -16,6 +18,7 @@ class SpellingBeeScreen extends StatelessWidget {
       create: (context) => SpellingBeeBloc(
         context.read<WordRepository>(),
         context.read<StatisticsRepository>(),
+        context.read<SettingsRepository>(),
       )..add(StartSpellingGame()),
       child: const SpellingBeeView(),
     );
@@ -40,16 +43,56 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
     super.dispose();
   }
 
+  void _showGameInfo(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          "Game Info",
+          style: TextStyle(color: Colors.deepPurple),
+        ),
+        content: const Text(
+          "Spelling Bee: Listen to the word and type the corect spelling. Use 'Slow Mode' if you need it!",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final settings = context.read<SettingsRepository>();
+    final categories = settings.defaultCategories;
+    final catText = categories.isEmpty
+        ? 'ALL'
+        : categories.length > 1
+        ? 'MIXED'
+        : CategoryUtils.formatName(categories.first).toUpperCase();
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text(
-          "Spelling Bee",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
         centerTitle: true,
+        title: GestureDetector(
+          onTap: () => _showGameInfo(context),
+          child: Column(
+            children: [
+              const Text(
+                "Spelling Bee",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+              ),
+              Text(
+                "${settings.gameLevel.toUpperCase()} • $catText",
+                style: const TextStyle(fontSize: 10, color: Colors.white70),
+              ),
+            ],
+          ),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
@@ -108,6 +151,18 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
                 ),
               );
             }
+
+            if (state.message != null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.message!),
+                  backgroundColor: Colors.blueAccent,
+                  duration: const Duration(seconds: 1),
+                ),
+              );
+              // Note: Message isn't cleared in state automatically but SnackBar is transient.
+              // To avoid re-showing on rebuilds, we rely on the fact that Bloc listener fires on state change.
+            }
           },
           builder: (context, state) {
             if (state.status == SpellingStatus.finished) {
@@ -150,112 +205,165 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
 
             return SafeArea(
               child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: GlassContainer(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Speaker Icon (Big)
-                        GestureDetector(
-                          onTap: () => context.read<SpellingBeeBloc>().add(
-                            const PlayAudio(slow: false),
-                          ),
-                          child: Container(
-                            padding: const EdgeInsets.all(30),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.5),
-                                width: 2,
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: GlassContainer(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Speaker Icon (Big)
+                          GestureDetector(
+                            onTap: () => context.read<SpellingBeeBloc>().add(
+                              const PlayAudio(slow: false),
+                            ),
+                            child: Container(
+                              padding: const EdgeInsets.all(30),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.5),
+                                  width: 2,
+                                ),
                               ),
-                            ),
-                            child: const Icon(
-                              Icons.volume_up_rounded,
-                              size: 64,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextButton.icon(
-                          onPressed: () => context.read<SpellingBeeBloc>().add(
-                            const PlayAudio(slow: true),
-                          ),
-                          icon: const Icon(Icons.speed, color: Colors.white70),
-                          label: const Text(
-                            "Listen Slow",
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                        ),
-
-                        const SizedBox(height: 40),
-
-                        // Input
-                        TextField(
-                          controller: _textController,
-                          focusNode: _focusNode,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            letterSpacing: 2,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: "Type word...",
-                            hintStyle: TextStyle(
-                              color: Colors.white.withOpacity(0.4),
-                            ),
-                            border: InputBorder.none,
-                            enabledBorder: UnderlineInputBorder(
-                              borderSide: BorderSide(
-                                color: Colors.white.withOpacity(0.5),
-                              ),
-                            ),
-                            focusedBorder: const UnderlineInputBorder(
-                              borderSide: BorderSide(
+                              child: const Icon(
+                                Icons.volume_up_rounded,
+                                size: 64,
                                 color: Colors.white,
-                                width: 2,
                               ),
                             ),
                           ),
-                          textInputAction: TextInputAction.done,
-                          onSubmitted: (value) {
-                            context.read<SpellingBeeBloc>().add(
-                              SubmitSpelling(value),
-                            );
-                          },
-                        ),
-
-                        const SizedBox(height: 40),
-
-                        ElevatedButton(
-                          onPressed: () {
-                            if (_textController.text.isNotEmpty) {
-                              context.read<SpellingBeeBloc>().add(
-                                SubmitSpelling(_textController.text),
-                              );
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.orange[900],
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 48,
-                              vertical: 16,
+                          const SizedBox(height: 16),
+                          // Hints Display
+                          if (state.definition.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 16.0),
+                              child: Text(
+                                state.definition,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontStyle: FontStyle.italic,
+                                  fontSize: 16,
+                                ),
+                              ),
                             ),
-                            textStyle: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
+
+                          if (state.hintText.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 24.0),
+                              child: Text(
+                                state.hintText,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  letterSpacing: 4,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
+
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              TextButton.icon(
+                                onPressed: () => context
+                                    .read<SpellingBeeBloc>()
+                                    .add(const PlayAudio(slow: true)),
+                                icon: const Icon(
+                                  Icons.speed,
+                                  color: Colors.white70,
+                                ),
+                                label: const Text(
+                                  "Listen Slow",
+                                  style: TextStyle(color: Colors.white70),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              TextButton.icon(
+                                onPressed: () => context
+                                    .read<SpellingBeeBloc>()
+                                    .add(RequestHint()),
+                                icon: const Icon(
+                                  Icons.lightbulb_outline,
+                                  color: Colors.amberAccent,
+                                ),
+                                label: const Text(
+                                  "Hint (5 💎)",
+                                  style: TextStyle(color: Colors.amberAccent),
+                                ),
+                              ),
+                            ],
                           ),
-                          child: const Text("CHECK"),
-                        ),
-                      ],
+
+                          const SizedBox(height: 20),
+
+                          // Input
+                          TextField(
+                            controller: _textController,
+                            focusNode: _focusNode,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              letterSpacing: 2,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: "Type word...",
+                              hintStyle: TextStyle(
+                                color: Colors.white.withOpacity(0.4),
+                              ),
+                              border: InputBorder.none,
+                              enabledBorder: UnderlineInputBorder(
+                                borderSide: BorderSide(
+                                  color: Colors.white.withOpacity(0.5),
+                                ),
+                              ),
+                              focusedBorder: const UnderlineInputBorder(
+                                borderSide: BorderSide(
+                                  color: Colors.white,
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                            textInputAction: TextInputAction.done,
+                            onSubmitted: (value) {
+                              context.read<SpellingBeeBloc>().add(
+                                SubmitSpelling(value),
+                              );
+                            },
+                          ),
+
+                          const SizedBox(height: 40),
+
+                          ElevatedButton(
+                            onPressed: () {
+                              if (_textController.text.isNotEmpty) {
+                                context.read<SpellingBeeBloc>().add(
+                                  SubmitSpelling(_textController.text),
+                                );
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: Colors.orange[900],
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 48,
+                                vertical: 16,
+                              ),
+                              textStyle: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            child: const Text("CHECK"),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

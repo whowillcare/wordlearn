@@ -40,6 +40,7 @@ class MiniGameState extends Equatable {
   final String hintText;
   final int hintsUsed;
   final bool isWordLearnt;
+  final Set<String> bonusWords;
 
   const MiniGameState({
     this.status = GameStatus.initial,
@@ -50,6 +51,7 @@ class MiniGameState extends Equatable {
     this.hintText = '',
     this.hintsUsed = 0,
     this.isWordLearnt = false,
+    this.bonusWords = const {},
   });
 
   MiniGameState copyWith({
@@ -61,6 +63,7 @@ class MiniGameState extends Equatable {
     String? hintText,
     int? hintsUsed,
     bool? isWordLearnt,
+    Set<String>? bonusWords,
   }) {
     return MiniGameState(
       status: status ?? this.status,
@@ -71,6 +74,7 @@ class MiniGameState extends Equatable {
       hintText: hintText ?? this.hintText,
       hintsUsed: hintsUsed ?? this.hintsUsed,
       isWordLearnt: isWordLearnt ?? this.isWordLearnt,
+      bonusWords: bonusWords ?? this.bonusWords,
     );
   }
 
@@ -84,6 +88,7 @@ class MiniGameState extends Equatable {
     hintText,
     hintsUsed,
     isWordLearnt,
+    bonusWords,
   ];
 }
 
@@ -117,6 +122,7 @@ class MiniGameBloc extends Bloc<MiniGameEvent, MiniGameState> {
         hintText: '',
         hintsUsed: 0,
         isWordLearnt: false,
+        bonusWords: {},
       ),
     );
 
@@ -165,7 +171,10 @@ class MiniGameBloc extends Bloc<MiniGameEvent, MiniGameState> {
   ) async {
     if (state.status != GameStatus.playing) return;
 
-    if (event.guess.trim().toLowerCase() == state.targetWord.toLowerCase()) {
+    final guess = event.guess.trim().toLowerCase();
+    final target = state.targetWord.toLowerCase();
+
+    if (guess == target) {
       // Award points (less if hints used)
       int points =
           state.targetWord.length * EconomyConstants.anagramWinMultiplier;
@@ -183,7 +192,25 @@ class MiniGameBloc extends Bloc<MiniGameEvent, MiniGameState> {
         ),
       );
     } else {
-      emit(state.copyWith(message: 'Incorrect, try again!'));
+      // Check for Bonus
+      if (state.bonusWords.contains(guess)) {
+        emit(state.copyWith(message: 'You already found this bonus word!'));
+        return;
+      }
+
+      final isValid = await _wordRepository.isValidWord(guess);
+      if (isValid) {
+        await _statisticsRepository.addPoints(1);
+        final newBonusWords = Set<String>.from(state.bonusWords)..add(guess);
+        emit(
+          state.copyWith(
+            bonusWords: newBonusWords,
+            message: 'Bonus! "$guess" is a valid word! (+1 💎)',
+          ),
+        );
+      } else {
+        emit(state.copyWith(message: 'Incorrect, try again!'));
+      }
     }
   }
 

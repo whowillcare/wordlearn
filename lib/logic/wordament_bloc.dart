@@ -136,7 +136,7 @@ class WordamentBloc extends Bloc<WordamentEvent, WordamentState> {
     emit(state.copyWith(status: WordamentStatus.loading));
 
     if (_dictionary == null) {
-      _dictionary = await _wordRepository.getAllWords();
+      _dictionary = await _wordRepository.getAllWords(onlyCommon: true);
     }
 
     // Generate Grid

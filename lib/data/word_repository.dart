@@ -147,7 +147,7 @@ class WordRepository {
   Future<int> getWordsCount(
     List<String> categories,
     int minLength,
-    int maxLength, {
+    int? maxLength, {
     bool allowSpecialChars = true,
   }) async {
     final db = await _dbHelper.database;
@@ -155,32 +155,43 @@ class WordRepository {
         ? ''
         : " AND w.text NOT LIKE '%-%' AND w.text NOT LIKE '% %' AND w.text NOT LIKE '%''%'";
 
+    String lengthClause = 'w.length >= ?';
+    final args = <dynamic>[minLength];
+
+    if (maxLength != null) {
+      lengthClause += ' AND w.length <= ?';
+      args.add(maxLength);
+    }
+
     if (categories.contains('all') || categories.isEmpty) {
       final result = await db.rawQuery(
-        'SELECT COUNT(*) as count FROM words w WHERE length >= ? AND length <= ?$specialCharFilter',
-        [minLength, maxLength],
+        'SELECT COUNT(*) as count FROM words w WHERE $lengthClause$specialCharFilter',
+        args,
       );
       return result.first['count'] as int;
     }
 
     final placeholders = List.filled(categories.length, '?').join(',');
-    final result = await db.rawQuery(
-      '''
+    final query =
+        '''
       SELECT COUNT(DISTINCT w.id) as count 
       FROM words w
       JOIN word_categories wc ON w.id = wc.word_id
       JOIN categories c ON wc.category_id = c.id
-      WHERE c.tag IN ($placeholders) AND w.length >= ? AND w.length <= ?$specialCharFilter
-      ''',
-      [...categories, minLength, maxLength],
-    );
+      WHERE c.tag IN ($placeholders) AND $lengthClause$specialCharFilter
+    ''';
+
+    // Arguments: categories first, then length args
+    final fullArgs = [...categories, ...args];
+
+    final result = await db.rawQuery(query, fullArgs);
     return result.first['count'] as int;
   }
 
   Future<List<String>> getWords(
     List<String> categories,
     int minLength,
-    int maxLength, {
+    int? maxLength, {
     bool allowSpecialChars = true,
   }) async {
     final db = await _dbHelper.database;
@@ -188,25 +199,36 @@ class WordRepository {
         ? ''
         : " AND w.text NOT LIKE '%-%' AND w.text NOT LIKE '% %' AND w.text NOT LIKE '%''%'";
 
+    String lengthClause = 'w.length >= ?';
+    final args = <dynamic>[minLength];
+
+    if (maxLength != null) {
+      lengthClause += ' AND w.length <= ?';
+      args.add(maxLength);
+    }
+
     if (categories.contains('all') || categories.isEmpty) {
       final results = await db.rawQuery(
-        'SELECT text FROM words w WHERE length >= ? AND length <= ?$specialCharFilter',
-        [minLength, maxLength],
+        'SELECT text FROM words w WHERE $lengthClause$specialCharFilter',
+        args,
       );
       return results.map((row) => row['text'] as String).toList();
     }
 
     final placeholders = List.filled(categories.length, '?').join(',');
-    final results = await db.rawQuery(
-      '''
+    final query =
+        '''
       SELECT DISTINCT w.text 
       FROM words w
       JOIN word_categories wc ON w.id = wc.word_id
       JOIN categories c ON wc.category_id = c.id
-      WHERE c.tag IN ($placeholders) AND w.length >= ? AND w.length <= ?$specialCharFilter
-      ''',
-      [...categories, minLength, maxLength],
-    );
+      WHERE c.tag IN ($placeholders) AND $lengthClause$specialCharFilter
+    ''';
+
+    // Arguments: categories first, then length args
+    final fullArgs = [...categories, ...args];
+
+    final results = await db.rawQuery(query, fullArgs);
     return results.map((row) => row['text'] as String).toList();
   }
 
@@ -529,11 +551,13 @@ class WordRepository {
     await addLearntWord(word, category);
   }
 
-  Future<Set<String>> getAllWords() async {
+  Future<Set<String>> getAllWords({bool onlyCommon = false}) async {
     final db = await _dbHelper.database;
-    final result = await db.rawQuery(
-      'SELECT text FROM words WHERE length >= 3',
-    );
+    String query = 'SELECT text FROM words WHERE length >= 3';
+    if (onlyCommon) {
+      query += ' AND is_common = 1';
+    }
+    final result = await db.rawQuery(query);
     return result.map((row) => (row['text'] as String).toLowerCase()).toSet();
   }
   // --- Flashcards Logic ---

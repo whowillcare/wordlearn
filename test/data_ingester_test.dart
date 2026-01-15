@@ -38,18 +38,17 @@ class MockWordRepository extends Mock implements WordRepository {
   Future<List<String>> getWords(
     List<String> categories,
     int minLength,
-    int maxLength,
-  ) async => [];
-
-  @override
-  Future<void> insertWord(String text, String category) async {}
+    int? maxLength, {
+    bool allowSpecialChars = true,
+  }) async => [];
 
   @override
   Future<int> getWordsCount(
     List<String> categories,
     int minLength,
-    int maxLength,
-  ) async => 0;
+    int? maxLength, {
+    bool allowSpecialChars = true,
+  }) async => 0;
 
   @override
   Future<String> getWordCategory(String word) async => 'unknown';

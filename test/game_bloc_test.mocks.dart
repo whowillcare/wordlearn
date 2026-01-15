@@ -86,14 +86,15 @@ class MockWordRepository extends _i1.Mock implements _i3.WordRepository {
   _i4.Future<int> getWordsCount(
     List<String>? categories,
     int? minLength,
-    int? maxLength,
-  ) =>
+    int? maxLength, {
+    bool? allowSpecialChars = true,
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#getWordsCount, [
-              categories,
-              minLength,
-              maxLength,
-            ]),
+            Invocation.method(
+              #getWordsCount,
+              [categories, minLength, maxLength],
+              {#allowSpecialChars: allowSpecialChars},
+            ),
             returnValue: _i4.Future<int>.value(0),
           )
           as _i4.Future<int>);
@@ -102,10 +103,15 @@ class MockWordRepository extends _i1.Mock implements _i3.WordRepository {
   _i4.Future<List<String>> getWords(
     List<String>? categories,
     int? minLength,
-    int? maxLength,
-  ) =>
+    int? maxLength, {
+    bool? allowSpecialChars = true,
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#getWords, [categories, minLength, maxLength]),
+            Invocation.method(
+              #getWords,
+              [categories, minLength, maxLength],
+              {#allowSpecialChars: allowSpecialChars},
+            ),
             returnValue: _i4.Future<List<String>>.value(<String>[]),
           )
           as _i4.Future<List<String>>);

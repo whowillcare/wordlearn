@@ -8,7 +8,7 @@ import 'package:word_learn_app/data/game_score.dart';
 
 import 'package:word_learn_app/data/settings_repository.dart';
 import 'package:word_learn_app/main.dart';
-import 'package:word_learn_app/l10n/app_localizations.dart';
+import 'package:word_learn_app/main.dart';
 
 import 'package:word_learn_app/data/auth_repository.dart';
 
@@ -20,7 +20,7 @@ class MockWordRepository extends Mock implements WordRepository {
   Future<List<String>> getWords(
     List<String> categories,
     int minLength,
-    int maxLength, {
+    int? maxLength, {
     bool allowSpecialChars = true,
   }) async => [];
 
@@ -28,7 +28,7 @@ class MockWordRepository extends Mock implements WordRepository {
   Future<int> getWordsCount(
     List<String> categories,
     int minLength,
-    int maxLength, {
+    int? maxLength, {
     bool allowSpecialChars = true,
   }) async => 0;
 
@@ -65,8 +65,6 @@ class MockWordRepository extends Mock implements WordRepository {
 
 class MockStatisticsRepository extends Mock implements StatisticsRepository {
   @override
-  Future<void> init() async {}
-  @override
   Future<GameScore> getScore(String levelKey) async =>
       GameScore.initial(levelKey);
 
@@ -78,55 +76,22 @@ class MockStatisticsRepository extends Mock implements StatisticsRepository {
 }
 
 class MockSettingsRepository extends Mock implements SettingsRepository {
-  @override
-  bool get isSoundEnabled => true;
-  @override
-  bool get isVip => false;
-  @override
-  String get languageCode => 'en';
-  @override
-  List<String> get defaultCategories => [];
-  @override
-  String? get defaultCategory => null;
-
-  @override
-  String get gameLevel => 'grade-1';
-
-  @override
-  Future<void> syncSettings() async {}
+  // ...
 }
 
-class MockAuthRepository extends Mock implements AuthRepository {}
-
-class MockStorage extends Mock implements Storage {
-  @override
-  Future<void> write(String key, dynamic value) async {}
-  @override
-  dynamic read(String key) => null;
-  @override
-  Future<void> delete(String key) async {}
-  @override
-  Future<void> clear() async {}
-}
+// ...
 
 void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
     HydratedBloc.storage = MockStorage();
-    // Build our app and trigger a frame.
-    // Note: The default template has a counter, but our MyApp has changed to HomeScreen.
-    // So this test needs to adapt or just verify MyApp builds.
-
     await tester.pumpWidget(
       MyApp(
         repository: MockWordRepository(),
-        statsRepository: MockStatisticsRepository(),
         statsRepository: MockStatisticsRepository(),
         settingsRepository: MockSettingsRepository(),
         authRepository: MockAuthRepository(),
       ),
     );
-
-    // Verify that our app builds.
     expect(find.byType(MaterialApp), findsOneWidget);
   });
 }

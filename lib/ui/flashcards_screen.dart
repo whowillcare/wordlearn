@@ -3,9 +3,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../logic/flashcards_bloc.dart';
 import '../data/word_repository.dart';
 import '../data/statistics_repository.dart';
+import '../data/settings_repository.dart';
+import '../utils/category_utils.dart';
 import 'components/diamond_display.dart';
 import 'components/points_action_dialog.dart';
 import 'components/glass_container.dart';
+import 'components/word_detail_dialog.dart';
 
 class FlashcardsScreen extends StatelessWidget {
   const FlashcardsScreen({super.key});
@@ -26,16 +29,69 @@ class FlashcardsScreen extends StatelessWidget {
 class FlashcardsView extends StatelessWidget {
   const FlashcardsView({super.key});
 
+  void _showGameInfo(BuildContext context) {
+    // Basic info dialog to match others
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          "Game Info",
+          style: TextStyle(color: Colors.deepPurple),
+        ),
+        content: const Text(
+          "Flashcards: Read the definition or synonym and choose the correct word. Earn points for correct answers!",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final settings = context
+        .read<
+          SettingsRepository
+        >(); // Read once for title (or watch if it changes dynamically?) - Watch is better
+    // Actually, settings won't change mid-game usually, but let's use watch if we want to be safe, or just read.
+    // The screen is stateless, so we can't easily watch without building again.
+    // Let's use Builder or just assume context.watch if we convert to stateful?
+    // It is Stateless. context.watch<SettingsRepository>() works fine in build.
+
+    // Re-getting settings for display
+    // Note: The previous BlocProvider wrapping is in parent widget.
+    // We can just use context.watch
+
+    final categories = settings.defaultCategories;
+    final catText = categories.isEmpty
+        ? 'ALL'
+        : categories.length > 1
+        ? 'MIXED'
+        : CategoryUtils.formatName(categories.first).toUpperCase();
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text(
-          "Flashcards",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
         centerTitle: true,
+        title: GestureDetector(
+          onTap: () => _showGameInfo(context),
+          child: Column(
+            children: [
+              const Text(
+                "Flashcards",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+              ),
+              Text(
+                "${settings.gameLevel.toUpperCase()} • $catText",
+                style: const TextStyle(fontSize: 10, color: Colors.white70),
+              ),
+            ],
+          ),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
@@ -219,26 +275,47 @@ class FlashcardsView extends StatelessWidget {
                                   border: Border.all(color: Colors.white30),
                                 ),
                                 child: InkWell(
-                                  onTap:
-                                      state.status == FlashcardsStatus.answered
-                                      ? null
-                                      : () => context
-                                            .read<FlashcardsBloc>()
-                                            .add(CheckAnswer(option)),
+                                  onTap: () {
+                                    if (state.status ==
+                                        FlashcardsStatus.answered) {
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) =>
+                                            WordDetailDialog(word: option),
+                                      );
+                                    } else {
+                                      context.read<FlashcardsBloc>().add(
+                                        CheckAnswer(option),
+                                      );
+                                    }
+                                  },
                                   borderRadius: BorderRadius.circular(16),
                                   child: Padding(
                                     padding: const EdgeInsets.symmetric(
                                       vertical: 20,
                                     ),
-                                    child: Text(
-                                      option.toUpperCase(),
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 1.5,
-                                      ),
+                                    child: Column(
+                                      children: [
+                                        Text(
+                                          option.toUpperCase(),
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: 1.5,
+                                          ),
+                                        ),
+                                        if (state.status ==
+                                            FlashcardsStatus.answered)
+                                          const Text(
+                                            "(Tap for info)",
+                                            style: TextStyle(
+                                              color: Colors.white54,
+                                              fontSize: 10,
+                                            ),
+                                          ),
+                                      ],
                                     ),
                                   ),
                                 ),
