@@ -1,0 +1,42 @@
+# Tasks
+
+- [x] Planning & Design
+    - [x] Explore codebase for Analysis storage and Notification deps <!-- id: 0 -->
+    - [x] Create Implementation Plan <!-- id: 1 -->
+- [ ] Feature: Refresh All Button
+- [x] Feature: Refresh All Button
+    - [x] Implement `refreshAllSessions` in `HomeProvider` <!-- id: 2 -->
+    - [x] Add Refresh All button to `HomeScreen` AppBar <!-- id: 3 -->
+- [x] Feature: Comparison History
+    - [x] Update Data Models to store previous analysis/history <!-- id: 4 -->
+    - [x] Implement logic to compare new analysis with old analysis <!-- id: 5 -->
+    - [x] Store comparison results (diffs) <!-- id: 6 -->
+    - [x] UI to display comparison history (optional/implied by "indicate changes") <!-- id: 7 -->
+- [x] Feature: Local Notifications & Event Page
+    - [x] Add `flutter_local_notifications` dependency <!-- id: 8 -->
+    - [x] Configure Local Notifications (Android/Linux permissions if needed) <!-- id: 9 -->
+    - [x] Trigger notification on specific changes (Trend, HH, HL, Stops) after Refresh All or App Start <!-- id: 10 -->
+    - [x] Create `EventLogScreen` to display change history <!-- id: 11 -->
+    - [x] Implement Notification Click Navigation <!-- id: 12 -->
+    - [x] Store Event Logs in `HomeProvider` <!-- id: 13 -->
+    - [x] Configuring Permissions (Android/iOS) <!-- id: 24 -->
+- [x] Feature: Advanced Event Logic (New)
+    - [x] Refactor `StockEvent` to align with historical dates <!-- id: 14 -->
+    - [x] Implement `generateHistoricalEvents` logic in `HomeProvider` (Backfill events since entry) <!-- id: 15 -->
+    - [x] Enforce "Trailing Profit Never Decreases" in Strategy <!-- id: 16 -->
+    - [x] Update `EventLogScreen` to be collapsable/grouped by Symbol <!-- id: 17 -->
+    - [x] Ensure events are deleted when Session is removed <!-- id: 18 -->
+- [x] Feature: Background Execution (New)
+    - [x] Research/Add `workmanager` for background tasks <!-- id: 19 -->
+    - [x] Implement Background Callback to run `refreshAllSessions` <!-- id: 20 -->
+    - [x] Configure 8 AM EST Schedule <!-- id: 21 -->
+    - [x] Implement Background Config Settings (Start/End Time, Weekend, Frequency) <!-- id: 22 -->
+    - [x] Update Settings UI for Background Config <!-- id: 23 -->
+- [x] Feature: Advanced Settings & Integration
+    - [x] Add `url_launcher` dependency <!-- id: 25 -->
+    - [x] Update `HomeProvider` with Strategy/Holding/URL settings <!-- id: 26 -->
+    - [x] Refactor Settings Dialog (Strategy Selection, Max Holding, URLs) <!-- id: 27 -->
+    - [x] Implement Max Holding Event Warning Logic <!-- id: 28 -->
+    - [x] Publicize `SessionView` widget for navigation <!-- id: 29 -->
+    - [x] Implement Event Log -> Session Navigation <!-- id: 30 -->
+    - [x] Implement External URL Launcher in Session View <!-- id: 31 -->

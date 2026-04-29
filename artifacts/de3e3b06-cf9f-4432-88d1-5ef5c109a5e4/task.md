@@ -1,0 +1,30 @@
+# Flutter Stock Analysis App
+
+- [ ] Data Layer (Backend) <!-- id: 4 -->
+    - [x] Define Domain Models (StockQuote, Candle) <!-- id: 5 -->
+    - [x] Create Data Provider Interface <!-- id: 6 -->
+    - [x] Implement Yahoo Finance Data Provider <!-- id: 7 -->
+    - [x] Implement SQLite Cache <!-- id: 8 -->
+    - [x] Create Repository combining API and Cache <!-- id: 9 -->
+- [ ] UI Implementation <!-- id: 14 -->
+    - [x] Create Stock Search/Input Widget <!-- id: 15 -->
+    - [x] Create Strategy Configuration Widget <!-- id: 16 -->
+    - [x] Create Result Display (Cut Loss/Profit targets) <!-- id: 17 -->
+    - [x] Implement Candle Chart Visualization <!-- id: 18 -->
+    - [x] Integrate all into Dashboard/Main Screen <!-- id: 19 -->
+- [ ] Enhancements Planning <!-- id: 26 -->
+    - [x] Update task list <!-- id: 27 -->
+    - [ ] Update Implementation Plan <!-- id: 28 -->
+- [ ] Data Layer Updates <!-- id: 29 -->
+    - [x] Update Repository for `forceRefresh` <!-- id: 30 -->
+    - [x] Implement Yahoo Finance Search API <!-- id: 31 -->
+- [ ] Business Logic Updates <!-- id: 32 -->
+    - [x] Update Strategy to return equation description <!-- id: 33 -->
+    - [x] Refactor Provider for Multi-tab support <!-- id: 34 -->
+- [ ] UI Updates <!-- id: 35 -->
+    - [x] Implement Tabbed View <!-- id: 36 -->
+    - [x] Add Refresh Button <!-- id: 37 -->
+    - [x] Add Autocomplete Search Widget <!-- id: 38 -->
+    - [x] Update Result Display (formula + timestamp) <!-- id: 39 -->
+- [x] Verification <!-- id: 40 -->
+    - [x] Verify new features <!-- id: 41 -->

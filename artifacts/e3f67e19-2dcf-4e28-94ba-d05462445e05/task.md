@@ -1,0 +1,34 @@
+# Tasks
+
+- [x] Planning and Initialization
+    - [x] Explore existing data format (HTML/JSON) <!-- id: 0 -->
+    - [x] Create implementation plan <!-- id: 1 -->
+    - [x] Initialize Flutter project <!-- id: 2 -->
+    - [x] Set up dependencies (flutter_bloc, sqlite3, firebase_core, etc.) <!-- id: 3 -->
+- [x] Data Layer Implementation
+    - [x] Design SQLite schema <!-- id: 4 -->
+    - [x] Implement data ingestion script (parse HTML/JSON -> SQLite) <!-- id: 5 -->
+    - [x] Create Repository pattern for Word data <!-- id: 6 -->
+- [x] Game Logic (Bloc)
+    - [x] Define Game States (Loading, Playing, Won, Lost) <!-- id: 7 -->
+    - [x] Implement Word selection logic (Length, Category) <!-- id: 8 -->
+    - [x] Implement Guess validation and Feedback logic <!-- id: 9 -->
+    - [x] Implement Hint system <!-- id: 10 -->
+- [x] UI Implementation
+    - [x] Home Screen (Category/Length selection) <!-- id: 11 -->
+    - [x] Game Screen (Grid, Keyboard, Hint view) <!-- id: 12 -->
+    - [x] Settings/Profile Screen <!-- id: 13 -->
+- [x] Learned Library Feature
+    - [x] Explore data for definitions (DB/HTML) <!-- id: 14 -->
+    - [x] Update Implementation Plan <!-- id: 15 -->
+    - [x] Add 'learnt_words' table to SQLite <!-- id: 16 -->
+    - [x] Implement 'Solution' button & Auto-add logic <!-- id: 17 -->
+    - [x] Implement Library UI (List & Detail view) <!-- id: 18 -->
+    - [x] Integrate TTS for pronunciation <!-- id: 19 -->
+- [ ] Debugging
+    - [x] Resolve 'ld.lld' missing error <!-- id: 20 -->
+        - [x] Verify host clang (v18)
+        - [x] Verify snap clang (v10 - broken)
+        - [x] Build with host toolchain overrides (Failed)
+        - [x] Disable native_assets experiment (Failed - Reverted)
+        - [x] Identify fix: `sudo apt install lld`

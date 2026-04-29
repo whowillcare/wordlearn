@@ -1,0 +1,35 @@
+# Migrate Logic to New App
+
+- [x] Analyze New Project Structure <!-- id: 0 -->
+- [x] Analyze Old Project Features (Gap Analysis) <!-- id: 1 -->
+- [x] Create Implementation Plan <!-- id: 2 -->
+- [x] Implement Missing Features <!-- id: 3 -->
+    - [x] Database/Storage Logic <!-- id: 4 -->
+    - [x] Game/App Logic <!-- id: 5 -->
+    - [x] UI/Navigation <!-- id: 6 -->
+- [x] Fix Database Population <!-- id: 8 -->
+    - [x] Use AssetManifest class <!-- id: 9 -->
+- [x] Verify functionality <!-- id: 7 -->
+- [x] Game UI Overhaul (Wordle Style) <!-- id: 10 -->
+    - [x] Implement On-Screen Keyboard <!-- id: 11 -->
+    - [x] Implement Guess Grid (Boxes) <!-- id: 12 -->
+    - [x] Implement Key/Letter Coloring Logic <!-- id: 13 -->
+    - [x] Integrate Keyboard with GameBloc <!-- id: 14 -->
+    - [x] Fix Layout Responsiveness & Scrolling <!-- id: 15 -->
+- [ ] Phase 2: Enhanced Features <!-- id: 16 -->
+    - [x] Infrastructure Setup <!-- id: 17 -->
+        - [x] Add Dependencies (audioplayers, flutter_localizations, intl) <!-- id: 18 -->
+        - [x] Create SettingsRepository (Sound, VIP, Language) <!-- id: 19 -->
+        - [x] Setup I18n (l10n.yaml, arb files) <!-- id: 20 -->
+    - [x] Game Logic Enhancements <!-- id: 21 -->
+        - [x] Implement Word Validation (Gibberish check) <!-- id: 22 -->
+        - [x] Add Sound Effects (Error/Success) <!-- id: 23 -->
+        - [x] Browsing & Library <!-- id: 24 -->
+        - [x] Searchable Categories (Repository support + Dropdown) <!-- id: 25 -->
+        - [x] Learnt Library (Categories, Favorites, Undo) <!-- id: 26 -->
+        - [x] Category Persistence in Settings (Fixed multiple selection bug) <!-- id: 27 -->
+    - [x] Phase 3: Rebranding & Cloud Sync <!-- id: 28 -->
+        - [x] Rename Package to com.wit4you.wordlearn (Android, iOS, macOS, Web, Windows, Linux) <!-- id: 29 -->
+        - [/] Firebase Integration (Core, Auth, Firestore) - Config pending <!-- id: 30 -->
+        - [x] Implement Settings Sync <!-- id: 31 -->
+        - [x] Generate App Icons (Android, iOS, macOS, Web, Windows) <!-- id: 32 -->

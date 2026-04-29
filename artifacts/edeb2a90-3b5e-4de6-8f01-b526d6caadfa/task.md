@@ -1,0 +1,27 @@
+# Tasks
+
+- [x] Configure Firebase Crashlytics
+    - [x] Add dependency to `pubspec.yaml`
+    - [x] Configure Android build (`build.gradle` and `settings.gradle`)
+    - [x] Initialize in `main.dart`
+- [x] Create standardized logging solution
+    - [x] Integrate `logger` package
+    - [x] Create `Log` utility class
+    - [x] Ensure `Log` utility handles Crashlytics reporting
+- [x] Replace global usage of `print`
+    - [x] `main.dart`
+    - [x] `AuthRepository`
+    - [x] `GameBloc`
+    - [x] `DatabaseHelper`
+- [x] Refactoring and Housekeeping
+    - [x] Verify localized string usage in UI
+    - [x] Refactor `home_screen.dart` to use `AppLocalizations`
+- [x] Ensure `Log` utility handles Crashlytics reporting
+- [/] **Debug**: Resolve Google Sign-In `null` token error
+    - [x] Instrument `AuthRepository` with token logging
+    - [x] Action: Update `google-services.json`
+    - [x] Verification: Check logs for token presence
+- [ ] **Sync Learnt Words**
+    - [x] `WordRepository`: Add `updates` stream
+    - [x] `CloudSyncService`: Implement `_syncWordsFromCloud` and `_updateCloudWord`
+    - [x] Verify manual sync via logging
