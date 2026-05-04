@@ -5,9 +5,11 @@ This document serves as the central entry point for the project's current state,
 > **Note to AI Agents:** The user has requested that all future planning, thinking, and artifacts be kept within this `artifacts/` directory. Be sure to read the artifacts grouped by their unique conversation IDs when needing historical context, and update this `project_status.md` file as work progresses.
 
 ## 🚀 In Progress / Immediate Bugs
-- **Authentication:** Resolve Google Sign-In `null` token error and `SecurityException: Unknown calling package name 'com.google.android.gms'`.
-- **Firebase/Cloud Sync:** Fix permission issues or query construction for `CloudSyncService` and ensure "learnt words" sync correctly.
-- **Database Population:** Finalize database population logic from `word/src` JSON files.
+- **Authentication:** Resolve Google Sign-In `null` token error. (Note: `SecurityException: Unknown calling package name 'com.google.android.gms'` was resolved).
+
+## ✅ Recently Completed
+- **Firebase/Cloud Sync:** Fixed permission issues for `CloudSyncService` and implemented bi-directional sync for "learnt words" (via `edeb2a90` and `d500c597`).
+- **Database Population:** Superseded JSON parsing by bundling a pre-populated SQLite `dictionary.db` loaded dynamically in `database_helper.dart`.
 
 ## 📋 Pending Features & Enhancements
 

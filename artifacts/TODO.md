@@ -3,9 +3,9 @@
 This file tracks the pending and in-progress tasks for the project. For deeper context on these items and the project's history, please refer to `project_status.md` and the subdirectories in this `artifacts/` folder.
 
 ## 🚀 In Progress / Immediate Bugs
-- [ ] **Authentication:** Resolve Google Sign-In `null` token error and `SecurityException: Unknown calling package name 'com.google.android.gms'`.
-- [ ] **Firebase/Cloud Sync:** Fix permission issues or query construction for `CloudSyncService` and ensure "learnt words" sync correctly.
-- [ ] **Database Population:** Finalize database population logic from `word/src` JSON files.
+- [ ] **Authentication:** Resolve Google Sign-In `null` token error. (Note: `SecurityException: Unknown calling package name 'com.google.android.gms'` was resolved via Manifest update).
+- [x] **Firebase/Cloud Sync:** Fix permission issues or query construction for `CloudSyncService` and ensure "learnt words" sync correctly. (Resolved via `d500c597` and `edeb2a90`).
+- [x] **Database Population:** Finalize database population logic from `word/src` JSON files. (Superseded: bundled `dictionary.db` is fully implemented in `database_helper.dart`).
 
 ## 📋 Pending Features & Enhancements
 
